@@ -14,17 +14,17 @@
 when the trip starts (time and pickup/drop-off zones), and test whether
 **Yellow** and **Green** taxis need different models.
 
-[Research question](#-research-question) ·
-[Experiments](#-experiments) ·
-[Pipeline](#-pipeline) ·
-[Quickstart](#-quickstart) ·
-[Data](#-data)
+[Research question](#research-question) ·
+[Experiments](#experiments) ·
+[Pipeline](#pipeline) ·
+[Quickstart](#quickstart) ·
+[Data](#data)
 
 </div>
 
 ---
 
-## 🎯 Research question
+## Research question
 
 > Can we predict NYC taxi trip duration using temporal and geographical features,
 > and does incorporating taxi service type improve predictive performance?
@@ -38,33 +38,33 @@ when the trip starts (time and pickup/drop-off zones), and test whether
 | **Metrics** | MAE · RMSE · R² · Median AE (all in minutes, except R²) |
 | **Models** | Median baseline → Linear Regression → Decision Tree → Random Forest → HistGradientBoosting |
 
-## 🚕 Two very different fleets
+## Two very different fleets
 
 <img src="assets/imbalance.svg" alt="Bar chart: 22,836,530 Yellow trips vs 255,175 Green trips, about 90 to 1" width="100%"/>
 
-- 🟨 **Yellow cabs** are concentrated in Manhattan and at the airports.
-- 🟩 **Green cabs** (Boro Taxis) can't take street hails in most of Manhattan and mostly serve the outer boroughs.
+- **Yellow cabs** are concentrated in Manhattan and at the airports.
+- **Green cabs** (Boro Taxis) can't take street hails in most of Manhattan and mostly serve the outer boroughs.
 
 This makes the cross-service experiments interesting: a model trained on one fleet
 is tested on parts of the city it has rarely seen.
 
-## 🧪 Experiments
+## Experiments
 
 | ID | Train on | Test on | What it tells us |
 |:--:|---|---|---|
-| **A** | 🟨 Yellow | 🟨 Yellow | Yellow-specific performance |
-| **B** | 🟩 Green | 🟩 Green | Green-specific performance |
-| **C1** | 🟨 + 🟩 | 🟨 + 🟩 | Combined model **with** `taxi_type` |
-| **C2** | 🟨 + 🟩 | 🟨 + 🟩 | Combined model **without** `taxi_type` |
-| **C3** | 🟨 + 🟩 balanced | 🟨 + 🟩 | Does the 90:1 imbalance matter? |
-| **D** | 🟨 Yellow | 🟩 Green | Cross-service generalization |
-| **E** | 🟩 Green | 🟨 Yellow | Cross-service generalization |
+| **A** | Yellow | Yellow | Yellow-specific performance |
+| **B** | Green | Green | Green-specific performance |
+| **C1** | Yellow + Green | Yellow + Green | Combined model **with** `taxi_type` |
+| **C2** | Yellow + Green | Yellow + Green | Combined model **without** `taxi_type` |
+| **C3** | Yellow + Green balanced | Yellow + Green | Does the 90:1 imbalance matter? |
+| **D** | Yellow | Green | Cross-service generalization |
+| **E** | Green | Yellow | Cross-service generalization |
 
 > [!IMPORTANT]
 > **C1 vs C2 answers the research question.** Same rows, same model, same test set.
 > The only difference is whether the model knows which taxi type it is.
 
-## 🔁 Pipeline
+## Pipeline
 
 ```mermaid
 flowchart LR
@@ -80,11 +80,11 @@ flowchart LR
     style E fill:#1b1f4a,stroke:#3ddc84,color:#ffffff
 ```
 
-## 🛑 No peeking at the future
+## No peeking at the future
 
 The model may only use information available **when the trip begins**.
 
-| ✅ Allowed | ❌ Excluded (known only after the trip) |
+| Allowed | Excluded (known only after the trip) |
 |---|---|
 | Pickup hour, day of week, month, weekend, rush hour | Drop-off time, actual duration |
 | Pickup & drop-off zone (and borough) | Actual `trip_distance` |
@@ -92,7 +92,7 @@ The model may only use information available **when the trip begins**.
 | Route median duration (from **training months only**) | Payment type, `RatecodeID` |
 | Passenger count (if reliable), taxi type | |
 
-## ⚡ Quickstart
+## Quickstart
 
 Requires [uv](https://docs.astral.sh/uv/).
 
@@ -110,7 +110,7 @@ Then select the project's `.venv` interpreter / Jupyter kernel in VS Code, and r
 | 2 | `notebooks/02_feature_engineering_modeling.ipynb` | Features, training, saved models |
 | 3 | `notebooks/03_evaluation_comparison.ipynb` | June test evaluation & comparisons |
 
-## 📦 Data
+## Data
 
 Raw data is **not tracked in Git** (`data/` is in `.gitignore`). Download it from the
 [TLC Trip Record Data page](https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page):
@@ -150,7 +150,7 @@ nyc-taxi-ml/
 └── ML_Mini_Project_Guidelines.pdf
 ```
 
-## 🤝 Responsible use
+## Responsible use
 
 TLC trip records are public and de-identified, and locations are given only at taxi-zone level.
 The models **predict** duration; they don't explain *why* trips are slow, so we avoid
