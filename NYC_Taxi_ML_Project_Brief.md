@@ -18,9 +18,13 @@ performance?
     Green Taxi trip records.
 2.  Compare model performance when trained on Yellow-only, Green-only,
     and combined datasets.
-3.  Evaluate whether a model trained on one taxi service generalizes to
+3.  Test directly whether adding `taxi_type` as a feature improves a
+    combined model (same data, with vs without the feature).
+4.  Evaluate whether a model trained on one taxi service generalizes to
     the other.
-4.  Identify the features most useful for predicting trip duration.
+5.  Identify the features most useful for predicting trip duration.
+6.  Discuss responsible use: privacy, performance differences across
+    areas of the city, and the limits of the predictions.
 
 This is an introductory, experiment-focused data science project. Keep
 the implementation understandable and avoid unnecessary infrastructure.
@@ -55,8 +59,29 @@ Also download the TLC Taxi Zone Lookup CSV.
 -   Green Taxi data dictionary:
     https://www.nyc.gov/assets/tlc/downloads/pdf/data_dictionary_trip_records_green.pdf
 
+-   Taxi Zone Shapefile (for zone-centroid distances):
+    https://d37ci6vzurychx.cloudfront.net/misc/taxi_zones.zip
+
 Use the official TLC page to verify the availability and naming of each
-monthly file before downloading.
+monthly file before downloading. The dataset has been approved by the
+course instructor.
+
+### Data audit (verified from the downloaded files)
+
+  Service   Rows (Jan--Jun 2026)   Raw size
+  --------- ---------------------- ----------
+  Yellow    22,836,530             ~404 MB
+  Green     255,175                ~6 MB
+
+-   Yellow has roughly **90× more trips** than Green. This imbalance
+    shapes the sampling and experiment design below.
+-   Both services share `PULocationID`, `DOLocationID`,
+    `passenger_count`, `trip_distance`, and fare columns.
+-   Timestamp columns differ: Yellow uses `tpep_pickup_datetime` /
+    `tpep_dropoff_datetime`; Green uses `lpep_pickup_datetime` /
+    `lpep_dropoff_datetime`.
+-   Green-only columns: `trip_type` (street hail vs dispatch),
+    `ehail_fee`. Yellow-only column: `Airport_fee`.
 
 ### Target variable
 
@@ -65,7 +90,22 @@ Create:
 `trip_duration_minutes = (dropoff_datetime - pickup_datetime)`
 
 Standardize the Yellow and Green pickup/dropoff timestamp column names
-during preprocessing.
+(to `pickup_datetime` / `dropoff_datetime`) during preprocessing.
+
+Trip durations are strongly right-skewed. Compare training on the raw
+target with training on `log1p(trip_duration_minutes)` (predictions
+converted back to minutes before evaluation).
+
+### Sampling
+
+Training a Random Forest on ~23 million Yellow rows is not feasible on a
+laptop. After cleaning:
+
+-   Use a fixed-seed random sample of Yellow trips (start with about 1--2
+    million training rows; adjust if training is too slow).
+-   Use all Green trips.
+-   Sample the June test set the same way for each service, and record
+    the sample sizes and seed in the notebook.
 
 ------------------------------------------------------------------------
 
@@ -93,6 +133,8 @@ nyc-taxi-ml/
 ├── src/
 │   └── utils.py
 │
+├── NYC_Taxi_ML_Project_Brief.md
+├── ML_Mini_Project_Guidelines.pdf
 ├── .gitignore
 ├── pyproject.toml
 ├── uv.lock
@@ -100,7 +142,12 @@ nyc-taxi-ml/
 ```
 
 Keep raw data out of Git. Do not commit large Parquet files, virtual
-environments, or temporary outputs.
+environments, or temporary outputs. The whole `data/` folder is listed
+in `.gitignore`; the README explains how to download the files so the
+project can be reproduced.
+
+Notebooks run in order (01 → 02 → 03). Notebook 02 saves trained models
+and predictions (e.g., with `joblib`) so notebook 03 can load them.
 
 ------------------------------------------------------------------------
 
@@ -120,7 +167,16 @@ Tasks:
 5.  Create the trip-duration target in minutes.
 6.  Identify and handle invalid timestamps, non-positive durations,
     missing values, and implausible records. Document all cleaning
-    rules.
+    rules and report row counts before and after each one. Planned
+    rules (confirm against the data first):
+    -   Drop trips whose pickup timestamp falls outside the month of
+        the file it came from (TLC files contain stray dates).
+    -   Keep durations within a justified range (starting point: 1 to
+        180 minutes); show the distribution that supports the cut-offs.
+    -   Treat zones 264 and 265 ("Unknown" / "Outside of NYC") as
+        missing location and drop those trips.
+    -   Check the share of missing or zero `passenger_count` before
+        deciding whether to use it.
 7.  Add a `taxi_type` column (`yellow` or `green`).
 8.  Combine compatible records where appropriate.
 9.  Explore trip-duration distributions and temporal/geographical
@@ -135,6 +191,8 @@ Suggested EDA:
 -   Monthly trip volume.
 -   Pickup and drop-off zone patterns.
 -   Yellow vs Green differences.
+-   Pickup zones by borough for each service (Green taxis cannot take
+    street hails in most of Manhattan, so coverage differs).
 
 **Expected output:** Cleaned, standardized datasets and initial EDA
 figures.
@@ -156,21 +214,45 @@ Tasks:
     -   Drop-off location ID.
     -   Passenger count, if sufficiently reliable.
     -   Taxi type for combined-model experiments.
-3.  Decide how to encode categorical features.
+    -   **Zone-centroid distance:** straight-line distance between the
+        pickup and drop-off zone centroids, computed from the TLC taxi
+        zone shapefile. This is a legitimate pre-trip distance estimate
+        (it uses only the zone IDs), unlike the actual `trip_distance`.
+    -   **Route median duration:** median training-set duration for each
+        (pickup zone, drop-off zone) pair, with a fallback for rare or
+        unseen pairs. Compute it from the training months only to avoid
+        leakage.
+    -   Optionally, pickup/drop-off borough from the zone lookup.
+3.  Decide how to encode categorical features. Zone IDs have ~260
+    levels each:
+    -   Tree models / HistGradientBoosting can use them as categorical
+        or ordinal codes directly.
+    -   For Linear Regression, prefer borough-level one-hot plus the
+        distance and route-median features over 2 × 260 one-hot columns.
+    -   Use `handle_unknown="ignore"` (or equivalent) so zones unseen in
+        training do not break cross-service experiments.
 4.  Create chronological train, validation, and test splits:
     -   January--April: training.
     -   May: validation and model selection.
     -   June: final test.
+    -   After selecting models on May, retrain the chosen settings on
+        January--May before the final June evaluation, and state this
+        in the report.
 5.  Establish a simple baseline, such as predicting the training-set
-    median duration.
+    median duration (optionally also a per-route-median baseline).
 6.  Train and tune a manageable set of regression models:
     -   Linear Regression.
     -   Decision Tree Regressor.
     -   Random Forest Regressor.
-    -   Optionally, HistGradientBoosting Regressor.
+    -   HistGradientBoosting Regressor (fast on large samples; likely
+        the strongest model).
 
-Keep preprocessing and model pipelines reproducible. Fit transformations
-on training data only.
+Keep preprocessing and model pipelines reproducible (scikit-learn
+`Pipeline` / `ColumnTransformer`, fixed `random_state`). Fit
+transformations on training data only.
+
+Without actual trip distance, expect a modest R². That is an honest
+result for a pre-trip prediction task, not a failure.
 
 **Expected output:** Trained models, predictions, and experiment results
 saved for evaluation.
@@ -186,19 +268,23 @@ Tasks:
     -   Mean Absolute Error (MAE).
     -   Root Mean Squared Error (RMSE).
     -   R².
+    -   Median Absolute Error (robust to the long tail of durations).
 3.  Compare the following experiments:
     -   Yellow-only model.
     -   Green-only model.
-    -   Combined Yellow + Green model.
+    -   Combined Yellow + Green model, with and without `taxi_type`.
 4.  For the combined model, report results separately for Yellow and
     Green test records.
 5.  Run cross-service generalization experiments:
     -   Train on Yellow, test on Green.
     -   Train on Green, test on Yellow.
-6.  Compare balanced and naturally sized combined training samples if
-    the service imbalance is substantial.
-7.  Analyze residuals and feature importance.
-8.  Summarize findings, limitations, and possible improvements.
+6.  Compare balanced and naturally sized combined training samples
+    (required: the imbalance is about 90:1).
+7.  Analyze residuals and feature importance (e.g., permutation
+    importance on the test set).
+8.  Break down errors by pickup borough to check whether the model
+    performs worse in some parts of the city.
+9.  Summarize findings, limitations, and possible improvements.
 
 **Expected output:** Final comparison tables, evaluation plots, and
 conclusions.
@@ -213,17 +299,28 @@ Keep the main comparisons clearly separated:
   ------------ ---------------- ---------------- ------------------------------
   A            Yellow           Yellow           Yellow-specific performance
   B            Green            Green            Green-specific performance
-  C            Yellow + Green   Yellow + Green   Combined-model performance
+  C1           Yellow + Green   Yellow + Green   Combined, **with** `taxi_type`
+  C2           Yellow + Green   Yellow + Green   Combined, **without** `taxi_type`
+  C3           Balanced Y + G   Yellow + Green   Combined, equal-sized samples
   D            Yellow           Green            Cross-service generalization
   E            Green            Yellow           Cross-service generalization
 
-For Experiment C, report metrics separately for each taxi type as well
-as overall metrics.
+For Experiments C1--C3, report metrics separately for each taxi type as
+well as overall metrics.
 
-Yellow and Green datasets may differ substantially in size and
+**C1 vs C2 directly answers the research question**: they use the same
+training rows, same model, and same test set, and differ only in whether
+`taxi_type` is a feature.
+
+Yellow and Green datasets differ substantially in size (~90:1) and
 geographic coverage. Do not assume that a combined model is
-automatically better. Consider a balanced-sample comparison and discuss
-the limitations of cross-service evaluation.
+automatically better. In the naturally sized combined sample, Yellow
+dominates the training signal; C3 checks how much that matters.
+
+Cross-service experiments (D, E) involve a distribution shift: Green
+pickups are concentrated outside Manhattan's core, so some pickup zones
+in the test set will be rare or unseen in training. Report this as a
+finding about geographic coverage, not just as lower accuracy.
 
 ------------------------------------------------------------------------
 
@@ -243,9 +340,17 @@ begins.
 -   Tolls.
 -   Total amount.
 -   Payment type.
+-   Surcharges and fees (`extra`, `mta_tax`, `congestion_surcharge`,
+    `Airport_fee`, `cbd_congestion_fee`, `improvement_surcharge`,
+    `ehail_fee`).
+-   `RatecodeID` (the final rate code is set by the trip, e.g., JFK
+    flat fare, so it can leak destination/fare information).
+-   `store_and_fwd_flag` and `VendorID` (not meaningful for predicting
+    duration; document if used).
 -   Other fields only known after the trip.
 
-The drop-off timestamp is used only to calculate the target. Document
+The drop-off timestamp is used only to calculate the target. Route
+median durations must be computed from training months only. Document
 any additional exclusions.
 
 Potential predictors include pickup time features, pickup and drop-off
@@ -267,11 +372,44 @@ comparing models.
 Do not rely on R² alone. Include error distributions or residual plots
 and interpret performance in the context of trip duration.
 
-Discuss: - Differences between Yellow and Green services. - Whether
-combining services helps. - Whether cross-service transfer is
-successful. - Data imbalance and geographic coverage. - Missing or
-unreliable fields. - Limitations of the available features and target
-definition.
+Discuss:
+
+-   Differences between Yellow and Green services.
+-   Whether combining services helps, and whether `taxi_type` adds
+    value (C1 vs C2).
+-   Whether cross-service transfer is successful.
+-   Data imbalance and geographic coverage.
+-   Missing or unreliable fields.
+-   Limitations of the available features and target definition.
+
+Explain results in plain language (e.g., "on average the model is off
+by about X minutes on a typical trip"), not just as metric values.
+
+### Responsible use (required section in the report)
+
+-   **Data privacy:** TLC trip records are public and de-identified;
+    locations are given only as taxi zones, not exact addresses.
+-   **Bias and fairness:** compare errors across boroughs and between
+    services. Areas with fewer trips (mostly outside Manhattan, and
+    Green in general) may get less accurate predictions.
+-   **Interpretability:** report which features matter most, and state
+    what cannot be concluded from them.
+-   **Overclaiming:** the models predict duration; they do not explain
+    why trips take longer. Avoid causal claims (e.g., "rush hour causes
+    X extra minutes").
+-   **Practical use:** predictions are estimates with sizeable errors on
+    long or unusual trips and should support, not replace, human
+    judgement (e.g., for driver pay or dispatch decisions).
+
+### Mapping to the course report structure
+
+  Course report section            Source in this project
+  -------------------------------- ------------------------------------
+  Data description, preprocessing  Notebook 01 + cleaning-rules table
+  Models and methods               Notebook 02
+  Evaluation, results              Notebook 03, experiment tables
+  Limitations, responsible use     Section 7 above
+  Appendix (reproducibility)       README (download + run order)
 
 ------------------------------------------------------------------------
 
@@ -346,11 +484,12 @@ documentation.
 
 ## 10. Immediate next steps
 
--   [ ] Create the project folder and structure.
--   [ ] Initialize the `uv` environment.
+-   [x] Create the project folder and structure.
+-   [x] Initialize the `uv` environment.
 -   [ ] Set up VS Code and the Jupyter kernel.
--   [ ] Download the matching Yellow and Green monthly files.
--   [ ] Download the Taxi Zone Lookup CSV.
+-   [x] Download the matching Yellow and Green monthly files.
+-   [x] Download the Taxi Zone Lookup CSV.
+-   [ ] Download the Taxi Zone Shapefile (for centroid distances).
 -   [ ] Start `01_data_preparation_eda.ipynb`.
 -   [ ] Audit the files before cleaning or modeling.
 
