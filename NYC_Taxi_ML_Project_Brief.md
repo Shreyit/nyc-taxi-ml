@@ -123,7 +123,7 @@ nyc-taxi-ml/
 │   └── processed/
 │
 ├── notebooks/
-│   ├── 01_data_preparation_eda.ipynb
+│   ├── 01_eda.ipynb
 │   ├── 02_feature_engineering_modeling.ipynb
 │   └── 03_evaluation_comparison.ipynb
 │
@@ -155,7 +155,7 @@ and predictions (e.g., with `joblib`) so notebook 03 can load them.
 
 ### Notebook 01 --- Data Preparation & EDA
 
-**File:** `01_data_preparation_eda.ipynb`
+**File:** `01_eda.ipynb`
 
 Tasks:
 
@@ -490,7 +490,7 @@ documentation.
 -   [x] Download the matching Yellow and Green monthly files.
 -   [x] Download the Taxi Zone Lookup CSV.
 -   [ ] Download the Taxi Zone Shapefile (for centroid distances).
--   [ ] Start `01_data_preparation_eda.ipynb`.
+-   [ ] Start `01_eda.ipynb`.
 -   [ ] Audit the files before cleaning or modeling.
 
 **First milestone:** Complete the data audit and confirm that the

@@ -106,7 +106,7 @@ Then select the project's `.venv` interpreter / Jupyter kernel in VS Code, and r
 
 | # | Notebook | Does |
 |:--:|---|---|
-| 1 | `notebooks/01_data_preparation_eda.ipynb` | Audit, clean, EDA → `data/processed/` |
+| 1 | `notebooks/01_eda.ipynb` | Audit, clean, EDA → `data/processed/` |
 | 2 | `notebooks/02_feature_engineering_modeling.ipynb` | Features, training, saved models |
 | 3 | `notebooks/03_evaluation_comparison.ipynb` | June test evaluation & comparisons |
 
