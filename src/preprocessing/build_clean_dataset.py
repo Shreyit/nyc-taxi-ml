@@ -9,9 +9,16 @@
 #   2. pickup inside 2025 and inside the source file's billing month
 #   3. duration in [1, 180] minutes
 #   4. pickup and drop-off zones are real TLC zones (1-263; 264/265 are placeholders)
-#   5. trip distance in [0.1, 100] miles
+#   5. no negative metered distance
 #   6. fare_amount in (0, 500]
 #   7. exact duplicate records removed on the trip identity key
+#
+# Filtering philosophy: a row is dropped only when a target or a model feature is unusable.
+# Duration and fare are targets, so impossible values must go. Zones are features, so invalid ids
+# must go. Metered distance is neither: it is a diagnostic, never a predictor, so it is NOT used to
+# drop records. Rows with a zero distance field still have a valid fare and duration and are kept,
+# flagged by is_distance_zero. Removing them would have deleted 817,668 Yellow and 11,418 Green
+# trips (about 1.9%) purely because the odometer failed.
 #
 # Usage:
 #   python -m src.preprocessing.build_clean_dataset
@@ -34,8 +41,6 @@ TMP.mkdir(parents=True, exist_ok=True)
 YEAR = 2025
 MIN_DURATION_MINUTES = 1.0
 MAX_DURATION_MINUTES = 180.0
-MIN_DISTANCE_MI = 0.1
-MAX_DISTANCE_MI = 100.0
 MAX_FARE = 500.0
 VALID_ZONE_MIN = 1
 VALID_ZONE_MAX = 263
@@ -71,9 +76,10 @@ def normalized_view(con: duckdb.DuckDBPyConnection, service: str) -> str:
           date_diff('millisecond', {pickup_col}, {dropoff_col}) / 60000.0 AS duration_min,
           CAST(PULocationID AS INTEGER) AS pu_zone,
           CAST(DOLocationID AS INTEGER) AS do_zone,
-          passenger_count,
-          trip_distance AS trip_distance_mi,
-          fare_amount,
+                      passenger_count,
+            trip_distance AS trip_distance_mi,
+            (trip_distance = 0) AS is_distance_zero,
+            fare_amount,
           total_amount,
           CAST(strftime({pickup_col}, '%m') AS TINYINT) AS source_month,
           CAST(strftime({pickup_col}, '%Y') AS SMALLINT) AS source_year
@@ -113,7 +119,7 @@ def clean_service(con: duckdb.DuckDBPyConnection, service: str) -> dict:
               AND duration_min BETWEEN {MIN_DURATION_MINUTES} AND {MAX_DURATION_MINUTES}
               AND pu_zone BETWEEN {VALID_ZONE_MIN} AND {VALID_ZONE_MAX}
               AND do_zone BETWEEN {VALID_ZONE_MIN} AND {VALID_ZONE_MAX}
-              AND trip_distance_mi BETWEEN {MIN_DISTANCE_MI} AND {MAX_DISTANCE_MI}
+              AND trip_distance_mi >= 0
           ) AS step5_distance,
           count(*) FILTER (
             WHERE pickup_datetime IS NOT NULL AND dropoff_datetime IS NOT NULL
@@ -121,7 +127,7 @@ def clean_service(con: duckdb.DuckDBPyConnection, service: str) -> dict:
               AND duration_min BETWEEN {MIN_DURATION_MINUTES} AND {MAX_DURATION_MINUTES}
               AND pu_zone BETWEEN {VALID_ZONE_MIN} AND {VALID_ZONE_MAX}
               AND do_zone BETWEEN {VALID_ZONE_MIN} AND {VALID_ZONE_MAX}
-              AND trip_distance_mi BETWEEN {MIN_DISTANCE_MI} AND {MAX_DISTANCE_MI}
+              AND trip_distance_mi >= 0
               AND fare_amount > 0 AND fare_amount <= {MAX_FARE}
           ) AS step6_fare
         FROM {view}
@@ -153,6 +159,7 @@ def clean_service(con: duckdb.DuckDBPyConnection, service: str) -> dict:
             pu_zone, do_zone,
             CAST(passenger_count AS SMALLINT) AS passenger_count,
             trip_distance_mi,
+            is_distance_zero,
             CAST(fare_amount AS DOUBLE) AS fare_amount,
             CAST(total_amount AS DOUBLE) AS total_amount,
             source_month
@@ -162,7 +169,7 @@ def clean_service(con: duckdb.DuckDBPyConnection, service: str) -> dict:
             AND duration_min BETWEEN {MIN_DURATION_MINUTES} AND {MAX_DURATION_MINUTES}
             AND pu_zone BETWEEN {VALID_ZONE_MIN} AND {VALID_ZONE_MAX}
             AND do_zone BETWEEN {VALID_ZONE_MIN} AND {VALID_ZONE_MAX}
-            AND trip_distance_mi BETWEEN {MIN_DISTANCE_MI} AND {MAX_DISTANCE_MI}
+            AND trip_distance_mi >= 0
             AND fare_amount > 0 AND fare_amount <= {MAX_FARE}
         )
         SELECT * EXCLUDE (dup_rank) FROM (

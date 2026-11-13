@@ -358,13 +358,17 @@ display(sample.groupby("taxi_type")[["duration_min", "trip_distance", "fare_amou
     md(
         """
 **Interpretation.** All three targets are strongly right-skewed with a long tail of extreme values. The
-dashed lines mark the candidate cut-offs: durations between 1 and 180 minutes, distances between 0.1 and 100
-miles, and strictly positive fares. These bounds sit far enough into the tail to keep the bulk of real
-traffic — three hours covers essentially every legitimate city trip — while removing impossible or voided
-records. Green trips are shorter and cheaper on average than Yellow trips, consistent with its outer-borough,
-non-airport footprint.
+dash marks the chosen duration window of 1–180 minutes: three hours covers essentially every legitimate city
+trip, while shorter values are cancellations or meter resets and longer values are meters left running.
 
-Fare is clipped at \$100 for visual inspection only; no fare values are altered in the data.
+Distance is deliberately **not** used as a filter. An earlier version of this pipeline required 0.1–100
+miles and removed 1.26 M Yellow rows, but those rows had valid fares and durations — the odometer simply
+reported zero. Since distance is never a predictor (the model derives distance from zone geometry instead),
+dropping those trips removed useful information for no benefit. The rule now only rejects negative distances,
+of which there are none.
+
+Green trips are shorter and cheaper on average than Yellow trips, consistent with its outer-borough,
+non-airport footprint. Fare is clipped at \$100 for visual inspection only; no fare values are altered.
 """
     ),
     md(
@@ -381,10 +385,11 @@ audit = pd.read_parquet(PROCESSED / "cleaning_audit_2025.parquet").set_index("se
 stages = ["raw_rows", "step1_valid_timestamps", "step2_in_source_month", "step3_duration",
           "step4_zones", "step5_distance", "step6_fare", "step7_deduplicated"]
 labels = ["Raw", "Valid timestamps", "Inside source month", "Duration 1-180 min",
-          "Valid zones 1-263", "Distance 0.1-100 mi", "Fare in (0, 500]", "Exact duplicates removed"]
+          "Valid zones 1-263", "No negative distance", "Fare in (0, 500]", "Exact duplicates removed"]
 removed = pd.DataFrame(index=labels[1:])
 for service in ("yellow", "green"):
-    removed[service] = [-int(audit.loc[service, stages[i]] - audit.loc[service, stages[i + 1]])
+    # Positive number of rows lost at each stage: the count before minus the count after.
+    removed[service] = [int(audit.loc[service, stages[i]] - audit.loc[service, stages[i + 1]])
                         for i in range(len(stages) - 1)]
 removed["total_rows_removed"] = removed.sum(axis=1)
 display(removed)
@@ -418,10 +423,11 @@ plt.show()
     ),
     md(
         """
-**Interpretation.** Yellow retains 89.3% and Green 92.4% of raw rows. The single largest loss for Yellow is
-the fare rule (2.5 M rows, about 5%), dominated by zero or negative fares that correspond to cancelled or
-voided trips; the duration rule removes roughly 1.1 M further rows. Green loses proportionally less, which
-fits its shorter, more consistently metered trips.
+**Interpretation.** Yellow retains 91.4% and Green 94.6% of raw rows. The single largest loss for Yellow is
+the fare rule (2.76 M rows, about 5.7%), dominated by negative fares: 71% of those rows carry
+`payment_type = 0`, an unrecorded payment code, and 34% have a negative total, so the financial record itself
+is corrupt rather than the trip being free. The duration rule removes a further 1.11 M rows. Green loses
+proportionally less, which fits its shorter, more consistently metered trips.
 
 Removing these rows is a deliberate bias: very short trips, voided meters and multi-hour outliers are excluded
 because they are not representative of the prediction target. The effect is that the model will be evaluated on
@@ -474,8 +480,9 @@ between 3.2 M and 4.0 M Yellow trips, indicating no month-level ingestion gap.
 2. Schemas differ only in timestamp naming and service-specific financial columns; a unified schema is safe.
 3. Cleaning removes 10.7% of Yellow and 7.6% of Green rows, dominated by non-positive fares and impossible
    durations. Every removed row is accounted for in the audit table.
-4. Durations, distances and fares are right-skewed; the 1–180 minute and 0.1–100 mile windows keep the useful
-   mass and exclude meter artefacts.
+4. Durations, distances and fares are right-skewed; the 1–180 minute window keeps the useful mass and excludes
+   meter artefacts. Metered distance is a diagnostic only and is therefore not used to drop records: 1.26 M
+   Yellow trips with a missing odometer reading still have valid fares and durations and are retained.
 5. `passenger_count` is unreliable enough that it must not be a primary driver of predictions.
 6. Post-trip fields — including both congestion charges — exist in the data and are excluded from predictors
    from this point forward.

@@ -40,3 +40,19 @@ Outcome: existing work is methodologically sound but 2026-bound and stops at dur
 - `notebooks/01_data_audit_and_understanding.ipynb`: written as a reproducible builder (`tools/build_nb_01.py`), executed top-to-bottom with the project kernel. **Verified**: 15 code cells, 0 errors, 0 warnings, 3 saved figures.
 - Added `tests/test_pipeline.py` + `pytest` dev dependency. **Verified**: 7 passed in 1.8 s (manifest completeness, 2025-only coverage, no null geometry/weather, geometry shorter than metered distance, 263 centroids, 8,760 weather hours, 11 federal holidays).
 - Wrote `docs/data_dictionary.md` covering raw, external, cleaned and feature tables plus their limitations.
+
+### Phase 2 correction — distance filter relaxed (2026-11-14)
+
+Inspection of the removed rows showed the 0.1–100 mile rule was unjustified: it deleted 1,264,603 Yellow and
+13,014 Green trips whose fare and duration were valid, merely because the odometer reported zero or an
+implausible number (median fare of the zero-distance bucket: \$18.34, above the overall median). Metered
+distance is a diagnostic, never a predictor, so it must not gate a row's survival.
+
+- Cleaning now rejects only negative distance (there are none) and keeps every non-negative reading.
+- Added `is_distance_zero` and `is_distance_implausible` flags so distance-based analyses can exclude them.
+- **Re-verified**: 48,722,602 Yellow → 44,511,782 (91.36%); 591,375 Green → 559,224 (94.56%); total
+  **45,071,006** rows; feature table rebuilt at 45,071,006 rows with 0 null weather/geometry and 1,025,389
+  rows flagged as implausible distance (2.28%).
+- Notebook 01 rebuilt and re-executed: 0 errors; the stage-removal table now reports positive counts.
+- Tests extended with the zero-distance flag check: **8 passed**.
+- Recorded as decision D-07.
