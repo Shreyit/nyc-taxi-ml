@@ -17,3 +17,14 @@ Living log of phases, commands run, and verified results. Anything marked **veri
 - Wrote `docs/project_audit.md` with the reuse / refactor / replace decisions.
 
 Outcome: existing work is methodologically sound but 2026-bound and stops at duration screening. Reuse the DuckDB engine, cleaning-audit pattern, chronological split and leakage rules; rebuild ingestion, features, both models and serving.
+
+---
+
+## Phase 1 — Research, verification and planning (2026-11-14)
+
+- **Verified (live HTTP)** all 12 × 2025 yellow and 12 × 2025 green TLC Parquet URLs return 200; 2025 schemas identical across Jan/Jul/Dec within each service; `cbd_congestion_fee` + `congestion_surcharge` present in both services for all 2025 months.
+- **Verified (live download)** `taxi_zones.zip` → 263 polygons, EPSG:2263, `LocationID` 1–263; JFK centroid (-73.7865, 40.6470) via pyogrio/geopandas.
+- **Verified (live API)** Open-Meteo archive returned exactly **8,760 hourly 2025 rows with zero nulls**; saved to `data/external/nyc_central_park_weather_2025_hourly.parquet`. Noted the API snaps the point to 40.8084/-74.0199 (~5 km west of Central Park).
+- **Verified (library)** `holidays.US(years=2025)` → 11 federal holidays; `state="NY"` adds Lincoln's Birthday, Susan B. Anthony Day, Election Day.
+- **Verified (uv add)** lightgbm 4.7.0, xgboost 3.4.1, shap 0.54.1, streamlit 1.67.0, holidays 0.108, geopandas 1.2.0, pyogrio 0.13.0 installed and importable on Python 3.15.1.
+- Wrote `docs/project_plan.md`: split (Jan–Aug / Sep–Oct / Nov–Dec 2025), full two-stage feature contract, leakage-control mechanism, modelling plan, deliverable map, risks.
