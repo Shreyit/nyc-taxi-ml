@@ -436,7 +436,84 @@ ordinary trips; this limitation is restated in the final report.
     ),
     md(
         """
-## 7. Resulting 2025 dataset
+## 7. Why each deletion is justified
+
+The audit table alone shows *how many* rows were removed but not *what* was in them. This section inspects
+the discarded records directly, because a removal rule is only defensible if the rows it removes are
+unusable rather than merely inconvenient.
+"""
+    ),
+    code(
+        """
+# One unified view of the raw records so each removal rule can be inspected on its own.
+con.execute(f'''
+    CREATE OR REPLACE TEMP VIEW raw_unified AS
+    SELECT 'yellow' AS taxi_type,
+           date_diff('millisecond', tpep_pickup_datetime, tpep_dropoff_datetime) / 60000.0 AS dur,
+           trip_distance AS dist, fare_amount, total_amount, payment_type,
+           PULocationID AS pu_zone, DOLocationID AS do_zone
+    FROM read_parquet('{parquet_glob("yellow")}')
+    UNION ALL
+    SELECT 'green',
+           date_diff('millisecond', lpep_pickup_datetime, lpep_dropoff_datetime) / 60000.0,
+           trip_distance, fare_amount, total_amount, payment_type,
+           PULocationID, DOLocationID
+    FROM read_parquet('{parquet_glob("green")}')
+''')
+
+buckets = {
+    "Fare <= 0": "fare_amount <= 0",
+    "Duration <= 0": "dur <= 0",
+    "Duration > 180 min": "dur > 180",
+    "Invalid zone (264/265 or null)": "pu_zone IS NULL OR do_zone IS NULL OR pu_zone NOT BETWEEN 1 AND 263 OR do_zone NOT BETWEEN 1 AND 263",
+}
+
+evidence = []
+for name, condition in buckets.items():
+    row = con.execute(f'''
+        SELECT count(*) AS rows,
+               round(median(dur), 1) AS median_duration_min,
+               round(median(dist), 2) AS median_distance_mi,
+               round(100.0 * count(*) FILTER (WHERE total_amount < 0) / count(*), 1) AS pct_negative_total,
+               round(100.0 * count(*) FILTER (WHERE payment_type = 0) / count(*), 1) AS pct_payment_code_zero
+        FROM raw_unified WHERE {condition}
+    ''').fetchone()
+    evidence.append({"removed_group": name, "rows": row[0], "median_duration_min": row[1],
+                     "median_distance_mi": row[2], "pct_negative_total": row[3],
+                     "pct_payment_code_zero": row[4]})
+
+evidence = pd.DataFrame(evidence)
+display(evidence)
+"""
+    ),
+    md(
+        """
+**What the discarded rows actually contain.**
+
+| Removed group | Why it cannot stay | Evidence |
+|---|---|---|
+| **Fare <= 0** (2,874,703 rows) | The stage-2 target is the fare. A negative fare is not a cheap trip, it is a corrupted financial record, and a regressor trained on it would learn nonsense. | 99.2% of these rows have a negative fare, **71.3% carry `payment_type = 0`** (a code the TLC does not define, not card, cash or dispute) and 33.9% have a negative total. Yet their median duration is 15.3 min over 2.24 mi, so these are real trips with broken financials. |
+| **Duration <= 0** (548,214 rows) | Duration is the stage-1 target. Drop-off before pickup is physically impossible. | Median distance 1.5 mi but median duration 0.0 min, and only 0.4% carry the invalid payment code, so these are meter resets and cancellations rather than corrupted tickets. |
+| **Duration > 180 min** (21,108 rows) | An impossible value for the primary target. | Median **1,392.6 minutes (23.2 hours) over 2.3 miles**. A taxi does not drive for a day; the meter was left running overnight. |
+| **Invalid zones** (380,872 rows) | Zone is a model feature and the origin of every geometric feature. | Median 23.1 min over 7.4 mi, so these are real trips, but with zone 264/265 ("unknown location") there is no borough, no centroid and no route, so the ticket can be neither predicted nor evaluated. |
+| **Exact duplicates** (1 row) | They let one physical trip appear in two different time splits. | Negligible volume, removed for correctness rather than for data quality. |
+
+The rule behind all of this is deliberately narrow: **a row is dropped only when a target or a feature is
+unusable.** Everything else is kept and flagged. Distance is the clearest case — it is a diagnostic, never a
+predictor, so a broken odometer does not justify deleting a trip whose fare and duration are perfectly good.
+That is why the distance stage removes nothing while still exposing 1.03 M questionable readings through
+`is_distance_zero` and `is_distance_implausible`.
+
+One clarification about the counts: this table counts **every raw row matching each condition**, whereas the
+audit table above reports removals *at the moment their stage runs*. The two differ because the stages are
+sequential — a row with a negative fare and an invalid zone is removed by the zone rule first and never reaches
+the fare rule. Both views are reported so that neither the total (the audit) nor the composition of each
+problem (this table) is hidden.
+"""
+    ),
+    md(
+        """
+## 8. Resulting 2025 dataset
 
 The unified table is the single input to the rest of the project. Its columns are checked here so that later
 notebooks can rely on them.
@@ -474,7 +551,7 @@ print(f"total: {monthly.to_numpy().sum():,} trips")
 for the chronological split (Jan–Aug train, Sep–Oct validation, Nov–Dec test). The monthly volume is stable
 between 3.2 M and 4.0 M Yellow trips, indicating no month-level ingestion gap.
 
-## 8. Conclusions carried into the next notebooks
+## 9. Conclusions carried into the next notebooks
 
 1. All 24 monthly files are present and validated; no substitution was needed.
 2. Schemas differ only in timestamp naming and service-specific financial columns; a unified schema is safe.
