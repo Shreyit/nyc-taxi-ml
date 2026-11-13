@@ -14,7 +14,7 @@ Source: TLC Trip Record Data, `https://d37ci6vzurychx.cloudfront.net/trip-data/{
 |---|---|---|---|
 | `tpep_pickup_datetime` / `lpep_pickup_datetime` | `pickup_datetime` | timestamp | Local New York time, no timezone |
 | `tpep_dropoff_datetime` / `lpep_dropoff_datetime` | `dropoff_datetime` | timestamp | Local New York time |
-| `passenger_count` | `passenger_count` | int | `BIGINT` (Yellow), `DOUBLE` (Green); ~25% missing in Yellow |
+| `passenger_count` | `passenger_count` | `passenger_count` | int | `BIGINT` (Yellow), `DOUBLE` (Green); ~25% missing in Yellow |
 | `trip_distance` | `trip_distance_mi` | double | Metered miles. **Post-trip: diagnostic only** |
 | `PULocationID`, `DOLocationID` | `pu_zone`, `do_zone` | int | TLC zone 1–263; 264/265 are "Unknown" placeholders |
 | `fare_amount` | `fare_amount` | double | Metered fare before tips and tolls. **Stage-2 target** |
@@ -50,7 +50,7 @@ data is a **city-level** approximation, not park- or route-specific.
 
 ## 3. `data/processed/taxi_clean_2025.parquet`
 
-44,045,617 rows (43,499,110 Yellow, 546,507 Green), 0.55 GB, ZSTD, ordered by `pickup_datetime`.
+45,071,006 rows (44,511,782 Yellow, 559,224 Green), 0.59 GB, ZSTD, ordered by `pickup_datetime`.
 
 | Column | Type | Description |
 |---|---|---|
@@ -60,7 +60,9 @@ data is a **city-level** approximation, not park- or route-specific.
 | `duration_min` | double | Target: minutes between pickup and dropoff, 1–180 |
 | `pu_zone`, `do_zone` | int | Validated TLC zone ids 1–263 |
 | `passenger_count` | smallint | Null when outside 0–6 |
-| `trip_distance_mi` | double | Metered miles, 0.1–100. **Diagnostic only** |
+| `trip_distance_mi` | double | Metered miles, non-negative. **Diagnostic only, never a predictor, and never a filter** |
+| `is_distance_zero` | boolean | The odometer field was zero or missing. Fare and duration are still valid |
+| `is_distance_implausible` | boolean | Distance outside 0.1–100 miles. The field is corrupt; the row is kept because distance is not a predictor |
 | `fare_amount` | double | Stage-2 target, in (0, 500] |
 | `total_amount` | double | Diagnostic target; null when outside (0, 2000] |
 | `source_month` | tinyint | Month of the originating file, equals the pickup month |
@@ -69,7 +71,7 @@ data is a **city-level** approximation, not park- or route-specific.
 
 ## 4. `data/processed/taxi_features_2025.parquet`
 
-Same 44,045,617 rows with temporal, geospatial, holiday and weather fields added. 1.15 GB.
+Same 45,071,006 rows with temporal, geospatial, holiday and weather fields added. ~1.2 GB.
 
 ### Temporal
 
@@ -114,7 +116,7 @@ Same 44,045,617 rows with temporal, geospatial, holiday and weather fields added
 
 ### Carried targets and diagnostics
 
-`duration_min`, `fare_amount`, `total_amount`, `trip_distance_mi`.
+`duration_min`, `fare_amount`, `total_amount`, `trip_distance_mi`, `is_distance_zero`, `is_distance_implausible`.
 
 ---
 
@@ -128,3 +130,9 @@ Same 44,045,617 rows with temporal, geospatial, holiday and weather fields added
 - **Holiday distance is federal only**, so `days_to_nearest_holiday` ignores NY-state-only observances.
 - **`passenger_count` is unreliable** (~25% missing for Yellow) and must not be a primary driver.
 - **Zones 264/265 removed**, so trips with unknown locations are invisible to the models.
+- **1.9% of retained rows have a zero metered distance and 1,956 have an absurd one** (up to 397,994 miles).
+  Both keep valid fare and duration targets, so they stay in the dataset behind `is_distance_zero` and
+  `is_distance_implausible`. Any analysis of distance must filter on those flags; the models never see the
+  field at all.
+- **Negative fares are excluded.** 71% of the excluded fare rows carry `payment_type = 0` and 34% have a
+  negative total, indicating corrupted financial records rather than free rides.

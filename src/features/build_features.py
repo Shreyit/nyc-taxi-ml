@@ -80,6 +80,8 @@ def main() -> None:
             t.fare_amount,
             t.total_amount,
             t.trip_distance_mi,
+            t.is_distance_zero,
+            (t.trip_distance_mi < 0.1 OR t.trip_distance_mi > 100) AS is_distance_implausible,
             t.passenger_count,
             t.source_month,
             t.pu_zone AS pu_location_id,
@@ -155,7 +157,9 @@ def main() -> None:
           duration_min,
           fare_amount,
           total_amount,
-          trip_distance_mi
+          trip_distance_mi,
+          is_distance_zero,
+          is_distance_implausible
         FROM geo
         """
     )
@@ -201,7 +205,8 @@ def main() -> None:
           count(*) FILTER (WHERE haversine_km IS NULL) AS missing_geometry,
           round(avg(haversine_km), 2) AS mean_haversine_km,
           round(avg(manhattan_km), 2) AS mean_manhattan_km,
-          round(avg(trip_distance_mi), 2) AS mean_meter_distance_mi,
+          count(*) FILTER (WHERE is_distance_implausible) AS implausible_distance,
+          round(avg(trip_distance_mi) FILTER (WHERE NOT is_distance_implausible), 2) AS mean_meter_distance_mi_plausible,
           round(100.0 * count(*) FILTER (WHERE is_holiday) / count(*), 2) AS pct_holiday,
           round(100.0 * count(*) FILTER (WHERE is_rush_hour) / count(*), 2) AS pct_rush
         FROM '{OUTPUT}'

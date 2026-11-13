@@ -40,3 +40,26 @@ Short ADR-style records. Each entry: context, decision, consequence, alternative
 **Context.** Task requires essential code inside notebooks with no hidden dependencies, while also requiring automated ingestion, tests and a Streamlit app.
 **Decision.** Each notebook defines its own helpers locally and is executable top-to-bottom. `src/` duplicates the ingestion pipeline, the feature contract and the inference path for automation and serving; `tests/` exercises `src/` only.
 **Consequence.** Some duplication between notebooks and `src/`, accepted deliberately for reproducibility of the narrative.
+
+## D-07 Filtering rule: only unusable targets and features justify dropping a row
+
+**Context.** The first cleaning pass also required metered distance to fall inside 0.1–100 miles. Inspection
+of the removed rows showed the rule was doing more harm than good: the 0.1-mile lower bound deleted 445 k
+Yellow trips with distances between zero and a tenth of a mile, and the zero-distance bucket held another
+817,668 Yellow and 11,418 Green trips whose **fare and duration were perfectly valid** (median fare \$18.34,
+median duration 16.7 min, both above the overall medians). A zero distance field means the odometer did not
+report, not that the trip did not happen.
+
+**Decision.** A row is dropped only when a target or a model feature is unusable:
+duration (target), fare (target), timestamps (target and split key), zone ids (features). Metered distance is
+neither — it is a diagnostic that never enters a predictor — so the distance rule now only rejects physically
+impossible negative values. Zero-distance rows are kept and flagged with `is_distance_zero` so any analysis
+that uses distance can exclude them explicitly.
+
+**Consequence.** 1,264,603 additional Yellow rows and 13,014 Green rows are retained. The trade-off is that
+EDAs involving distance must filter on `is_distance_zero`; the modelling feature set is unaffected because it
+already derives distance from zone geometry only.
+
+**Alternatives considered.** Keeping the 0.1–100 mile window (rejected: drops valid trips for a field the model
+does not use); keeping negative fares and imputing them (rejected: fabricates a target); keeping rows with
+negative distances (rejected: the meter reading is corrupt in a way that suggests the record itself is broken).

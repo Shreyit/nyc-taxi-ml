@@ -87,13 +87,34 @@ def test_feature_table_has_no_null_geometry_or_weather(con):
     assert null_holiday == 0
 
 
+def test_zero_distance_rows_are_flagged_not_deleted(con):
+    # The odometer failure rate is real and must be visible, not silently dropped: rows with a zero
+    # distance still carry valid targets, so they stay in the dataset behind a flag.
+    if not FEATURES.exists():
+        pytest.skip("feature table not built")
+    flagged, implausible, total = con.execute(
+        f"""SELECT count(*) FILTER (WHERE is_distance_zero),
+                   count(*) FILTER (WHERE is_distance_implausible), count(*)
+            FROM '{FEATURES}'"""
+    ).fetchone()
+    assert flagged > 0
+    assert flagged / total < 0.05
+    # Corrupt odometer readings are flagged, not deleted, so their share must stay small.
+    assert implausible / total < 0.05
+    negatives = con.execute(
+        f"SELECT count(*) FROM '{FEATURES}' WHERE trip_distance_mi < 0"
+    ).fetchone()[0]
+    assert negatives == 0
+
+
 def test_geometric_distance_is_shorter_than_metered_distance(con):
     # Zone centroids understate distance: the true point inside a zone is unknown and a straight
     # line is shorter than the street route. If this relationship inverts, the projection is wrong.
     if not FEATURES.exists():
         pytest.skip("feature table not built")
     ratio = con.execute(
-        f"SELECT avg(haversine_km) / avg(trip_distance_mi * 1.60934) FROM '{FEATURES}'"
+        f"""SELECT avg(haversine_km) / avg(trip_distance_mi * 1.60934)
+            FROM '{FEATURES}' WHERE NOT is_distance_implausible"""
     ).fetchone()[0]
     assert 0.5 < ratio < 1.0, ratio
 
