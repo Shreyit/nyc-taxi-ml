@@ -79,6 +79,14 @@
       <rect x="4" y="55" width="196" height="13" rx="5" fill="#1b8a4a" />
       <rect x="12" y="44" width="180" height="12" fill="url(#taxiChecker)" />
       <rect x="80" y="-10" width="36" height="12" rx="3" fill="#d9ffe8" stroke="#1b8a4a" stroke-width="1.5" />
+      <path d="M24 68 A21 21 0 0 1 66 68 Z M140 68 A21 21 0 0 1 182 68 Z" fill="#111827" />
+      <g fill="#15151a"><circle cx="45" cy="68" r="15" /><circle cx="161" cy="68" r="15" /></g>
+      <g fill="#9aa0ad" stroke="#5b606b" stroke-width="2">
+        <circle cx="45" cy="68" r="8.5" /><circle cx="161" cy="68" r="8.5" />
+      </g>
+      <g stroke="#5b606b" stroke-width="1.5">
+        <path d="M39 68 H51 M45 62 V74" /><path d="M155 68 H167 M161 62 V74" />
+      </g>
     </g>
     <g id="city-sedan" transform="scale(1.724 1.393)">
       <path d="M20 22 L36 7 H82 L101 22 Z" fill="var(--car-body, #475569)" />
@@ -601,7 +609,7 @@
 
   <!-- 7. YELLOW & GREEN NYC TAXI ON THE ROAD -->
   <g id="taxi-motion" style="display:none">
-    <animateTransform attributeName="transform" type="translate" values="-320 0; 1520 0" dur="13s" repeatCount="indefinite" />
+    <animateTransform attributeName="transform" type="translate" values="-240 0; 1560 0" dur="18s" calcMode="linear" repeatCount="indefinite" />
   <g id="nyc-taxi" transform="translate(85, 314)">
     <!-- Soft Ground Shadow on Road -->
     <ellipse cx="98" cy="74" rx="96" ry="7" fill="#090a0d" opacity="0.7" />
@@ -665,27 +673,35 @@
   </g>
   </g>
   <g>
-    <animateTransform attributeName="transform" type="translate" values="-220 0; 1540 0" dur="10s" begin="-3s" repeatCount="indefinite" />
+    <animateTransform attributeName="transform" type="translate" values="-240 0; 1560 0" dur="18s" begin="0s" calcMode="linear" repeatCount="indefinite" />
     <use href="#previous-yellow-taxi" transform="translate(0 348) scale(.72)" />
   </g>
   <g>
-    <animateTransform attributeName="transform" type="translate" values="1540 0; -220 0" dur="12s" begin="-7s" repeatCount="indefinite" />
-    <use href="#previous-green-taxi" transform="translate(0 405) scale(-.72 .72) translate(-200 0)" />
-  </g>
-  <g>
-    <animateTransform attributeName="transform" type="translate" values="-260 0; 1580 0" dur="17s" begin="-10s" repeatCount="indefinite" />
+    <animateTransform attributeName="transform" type="translate" values="-240 0; 1560 0" dur="18s" begin="-6s" calcMode="linear" repeatCount="indefinite" />
     <use href="#previous-yellow-taxi" transform="translate(0 348) scale(.72)" />
   </g>
   <g>
-    <animateTransform attributeName="transform" type="translate" values="-220 0; 1580 0" dur="14s" begin="-4s" repeatCount="indefinite" />
+    <animateTransform attributeName="transform" type="translate" values="-240 0; 1560 0" dur="18s" begin="-3s" calcMode="linear" repeatCount="indefinite" />
+    <use href="#previous-green-taxi" transform="translate(0 340) scale(.72)" />
+  </g>
+  <g>
+    <animateTransform attributeName="transform" type="translate" values="-240 0; 1560 0" dur="18s" begin="-12s" calcMode="linear" repeatCount="indefinite" />
     <use href="#city-sedan" style="--car-body:#ef4444;--car-trim:#991b1b" transform="translate(0 352) scale(.72)" />
   </g>
   <g>
-    <animateTransform attributeName="transform" type="translate" values="1580 0; -180 0" dur="16s" begin="-9s" repeatCount="indefinite" />
+    <animateTransform attributeName="transform" type="translate" values="1560 0; -240 0" dur="18s" begin="0s" calcMode="linear" repeatCount="indefinite" />
+    <use href="#previous-green-taxi" transform="translate(0 405) scale(-.72 .72) translate(-200 0)" />
+  </g>
+  <g>
+    <animateTransform attributeName="transform" type="translate" values="1560 0; -240 0" dur="18s" begin="-6s" calcMode="linear" repeatCount="indefinite" />
     <use href="#city-sedan" style="--car-body:#2563eb;--car-trim:#1e3a8a" transform="translate(0 392) scale(-.72 .72) translate(-200 0)" />
   </g>
   <g>
-    <animateTransform attributeName="transform" type="translate" values="1580 0; -240 0" dur="21s" begin="-16s" repeatCount="indefinite" />
+    <animateTransform attributeName="transform" type="translate" values="1560 0; -240 0" dur="18s" begin="-12s" calcMode="linear" repeatCount="indefinite" />
     <use href="#city-sedan" style="--car-body:#f8fafc;--car-trim:#64748b" transform="translate(0 404) scale(-.72 .72) translate(-200 0)" />
+  </g>
+  <g>
+    <animateTransform attributeName="transform" type="translate" values="1560 0; -240 0" dur="18s" begin="-3s" calcMode="linear" repeatCount="indefinite" />
+    <use href="#previous-yellow-taxi" transform="translate(0 420) scale(-.72 .72) translate(-200 0)" />
   </g>
 </svg>
