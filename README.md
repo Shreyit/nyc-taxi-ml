@@ -68,16 +68,15 @@ is tested on parts of the city it has rarely seen.
 
 ```mermaid
 flowchart LR
-    A[("TLC Parquet<br/>Yellow + Green<br/>Jan–Jun 2026")] --> B["01 · Audit & clean<br/>standardize columns<br/>build target"]
-    Z[("Taxi zones<br/>lookup + shapefile")] --> C
-    B --> C["02 · Features<br/>time · zones · borough<br/>centroid distance<br/>route median"]
-    C --> D["Train Jan–Apr<br/>tune on May"]
-    D --> E["03 · Test on June<br/>experiments A–E"]
-    E --> F["Residuals · importance<br/>errors by borough"]
+    A[("TLC Parquet<br/>Yellow + Green<br/>Jan–Jun 2026")] --> B["Single notebook<br/>Audit · clean · EDA<br/>feature pipelines · models"]
+    Z[("Taxi zones<br/>lookup + shapefile")] --> B
+    B --> C["Train Jan–Apr<br/>select on May"]
+    C --> D["Final evaluation<br/>June only"]
+    D --> E["Experiments A–E<br/>importance · borough errors"]
 
     style A fill:#ffc914,stroke:#c98f00,color:#1a1a1a
     style Z fill:#2ecc71,stroke:#1b8a4a,color:#0f3d22
-    style E fill:#1b1f4a,stroke:#3ddc84,color:#ffffff
+    style D fill:#1b1f4a,stroke:#3ddc84,color:#ffffff
 ```
 
 ## No peeking at the future
@@ -102,13 +101,7 @@ cd nyc-taxi-ml
 uv sync                 # create .venv with all dependencies
 ```
 
-Then select the project's `.venv` interpreter / Jupyter kernel in VS Code, and run the notebooks **in order**:
-
-| # | Notebook | Does |
-|:--:|---|---|
-| 1 | `notebooks/01_eda.ipynb` | Audit, clean, EDA → `data/processed/` |
-| 2 | `notebooks/02_feature_engineering_modeling.ipynb` | Features, training, saved models |
-| 3 | `notebooks/03_evaluation_comparison.ipynb` | June test evaluation & comparisons |
+Then select the project's `.venv` interpreter / Jupyter kernel in VS Code and run [`notebooks/nyc_taxi_trip_duration.ipynb`](notebooks/nyc_taxi_trip_duration.ipynb) from top to bottom. This is the project's only notebook. It currently contains the audit, cleaning, EDA, and preliminary leakage-safe feature screen, with the remaining model experiments and final June evaluation planned as later sections in the same file.
 
 ## Data
 
@@ -142,10 +135,10 @@ nyc-taxi-ml/
 │   │   ├── green/          green_tripdata_2026-01 … 06.parquet
 │   │   ├── taxi_zone_lookup.csv
 │   │   └── taxi_zones.zip
-│   └── processed/          cleaned datasets from notebook 01
-├── notebooks/              01 → 02 → 03
+│   └── processed/          cleaned datasets from the analysis notebook
+├── notebooks/
+│   └── nyc_taxi_trip_duration.ipynb
 ├── outputs/figures/        saved plots
-├── src/utils.py            shared helpers
 ├── NYC_Taxi_ML_Project_Brief.md
 └── ML_Mini_Project_Guidelines.pdf
 ```

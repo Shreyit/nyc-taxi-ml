@@ -101,8 +101,8 @@ converted back to minutes before evaluation).
 Training a Random Forest on ~23 million Yellow rows is not feasible on a
 laptop. After cleaning:
 
--   Use a fixed-seed random sample of Yellow trips (start with about 1--2
-    million training rows; adjust if training is too slow).
+-   Use a fixed-seed sample of Yellow trips (start with 300,000 for
+    laptop-friendly screening and increase if runtime permits).
 -   Use all Green trips.
 -   Sample the June test set the same way for each service, and record
     the sample sizes and seed in the notebook.
@@ -123,15 +123,10 @@ nyc-taxi-ml/
 │   └── processed/
 │
 ├── notebooks/
-│   ├── 01_eda.ipynb
-│   ├── 02_feature_engineering_modeling.ipynb
-│   └── 03_evaluation_comparison.ipynb
+│   └── nyc_taxi_trip_duration.ipynb
 │
 ├── outputs/
 │   └── figures/
-│
-├── src/
-│   └── utils.py
 │
 ├── NYC_Taxi_ML_Project_Brief.md
 ├── ML_Mini_Project_Guidelines.pdf
@@ -146,148 +141,52 @@ environments, or temporary outputs. The whole `data/` folder is listed
 in `.gitignore`; the README explains how to download the files so the
 project can be reproduced.
 
-Notebooks run in order (01 → 02 → 03). Notebook 02 saves trained models
-and predictions (e.g., with `joblib`) so notebook 03 can load them.
+The project uses one end-to-end notebook. It contains data auditing,
+cleaning, EDA, feature engineering, model selection, and final evaluation.
 
 ------------------------------------------------------------------------
 
-## 4. Notebook plan
+## 4. Single-notebook workflow
 
-### Notebook 01 --- Data Preparation & EDA
+**File:** `notebooks/nyc_taxi_trip_duration.ipynb`
 
-**File:** `01_eda.ipynb`
+Keep the project understandable and reproducible in one notebook, run
+from the first cell to the last. Organize it into sections covering:
 
-Tasks:
+1. Dataset inventory, monthly schemas, row counts, and target definition.
+2. Data-quality checks for missing values, duplicate-key candidates,
+   invalid timestamps, and duration outliers. Report counts and rates;
+   do not remove duplicate candidates without reviewing their meaning.
+3. Documented cleaning, including source-month validation, valid known
+   zones, and a duration range supported by the observed distribution.
+4. Descriptive EDA with labeled figures for duration, time, service, and
+   geographic patterns.
+5. Leakage-safe feature engineering from information available at trip
+   start. Candidate inputs include pickup time, pickup/drop-off zones,
+   boroughs, passenger count when appropriate, and taxi type. Actual
+   trip distance, fare fields, drop-off time, and validation/test-derived
+   route statistics are excluded.
+6. Chronological splits: January--April training, May validation, and
+   June final test. Fit every imputer, encoder, and learned feature
+   transformation on training data only. Keep June untouched until
+   model selection is complete.
+7. Reusable scikit-learn `Pipeline` / `ColumnTransformer` preprocessing,
+   with a training-median baseline and manageable model comparisons.
+   Use fixed seeds, unknown-safe categorical encoding, and documented
+   Yellow sampling plus all eligible Green training trips.
+8. Evaluate MAE, RMSE, R², and Median AE in minutes on June. Compare
+   Yellow-only, Green-only, combined with/without `taxi_type`, balanced
+   combined data, and cross-service generalization. Report metrics by
+   service and pickup borough, inspect residuals, and use validation-set
+   permutation importance for feature screening.
+9. Summarize findings, limitations, reproducibility, and responsible
+   use. Save cleaned data, figures, model outputs, and concise results
+   from this notebook.
 
-1.  Load Yellow and Green monthly Parquet files.
-2.  Inspect file sizes, row counts, column names, data types, and
-    missing values.
-3.  Compare schemas across months and taxi services.
-4.  Standardize common column names.
-5.  Create the trip-duration target in minutes.
-6.  Identify and handle invalid timestamps, non-positive durations,
-    missing values, and implausible records. Document all cleaning
-    rules and report row counts before and after each one. Planned
-    rules (confirm against the data first):
-    -   Drop trips whose pickup timestamp falls outside the month of
-        the file it came from (TLC files contain stray dates).
-    -   Keep durations within a justified range (starting point: 1 to
-        180 minutes); show the distribution that supports the cut-offs.
-    -   Treat zones 264 and 265 ("Unknown" / "Outside of NYC") as
-        missing location and drop those trips.
-    -   Check the share of missing or zero `passenger_count` before
-        deciding whether to use it.
-7.  Add a `taxi_type` column (`yellow` or `green`).
-8.  Combine compatible records where appropriate.
-9.  Explore trip-duration distributions and temporal/geographical
-    patterns.
-10. Save cleaned datasets in `data/processed/`.
-
-Suggested EDA:
-
--   Trip-duration distributions by taxi type.
--   Trips by hour and day of week.
--   Weekday vs weekend patterns.
--   Monthly trip volume.
--   Pickup and drop-off zone patterns.
--   Yellow vs Green differences.
--   Pickup zones by borough for each service (Green taxis cannot take
-    street hails in most of Manhattan, so coverage differs).
-
-**Expected output:** Cleaned, standardized datasets and initial EDA
-figures.
-
-### Notebook 02 --- Feature Engineering & Modeling
-
-**File:** `02_feature_engineering_modeling.ipynb`
-
-Tasks:
-
-1.  Load the processed datasets.
-2.  Create prediction-time features, such as:
-    -   Pickup hour.
-    -   Day of week.
-    -   Month.
-    -   Weekend indicator.
-    -   Rush-hour indicator.
-    -   Pickup location ID.
-    -   Drop-off location ID.
-    -   Passenger count, if sufficiently reliable.
-    -   Taxi type for combined-model experiments.
-    -   **Zone-centroid distance:** straight-line distance between the
-        pickup and drop-off zone centroids, computed from the TLC taxi
-        zone shapefile. This is a legitimate pre-trip distance estimate
-        (it uses only the zone IDs), unlike the actual `trip_distance`.
-    -   **Route median duration:** median training-set duration for each
-        (pickup zone, drop-off zone) pair, with a fallback for rare or
-        unseen pairs. Compute it from the training months only to avoid
-        leakage.
-    -   Optionally, pickup/drop-off borough from the zone lookup.
-3.  Decide how to encode categorical features. Zone IDs have ~260
-    levels each:
-    -   Tree models / HistGradientBoosting can use them as categorical
-        or ordinal codes directly.
-    -   For Linear Regression, prefer borough-level one-hot plus the
-        distance and route-median features over 2 × 260 one-hot columns.
-    -   Use `handle_unknown="ignore"` (or equivalent) so zones unseen in
-        training do not break cross-service experiments.
-4.  Create chronological train, validation, and test splits:
-    -   January--April: training.
-    -   May: validation and model selection.
-    -   June: final test.
-    -   After selecting models on May, retrain the chosen settings on
-        January--May before the final June evaluation, and state this
-        in the report.
-5.  Establish a simple baseline, such as predicting the training-set
-    median duration (optionally also a per-route-median baseline).
-6.  Train and tune a manageable set of regression models:
-    -   Linear Regression.
-    -   Decision Tree Regressor.
-    -   Random Forest Regressor.
-    -   HistGradientBoosting Regressor (fast on large samples; likely
-        the strongest model).
-
-Keep preprocessing and model pipelines reproducible (scikit-learn
-`Pipeline` / `ColumnTransformer`, fixed `random_state`). Fit
-transformations on training data only.
-
-Without actual trip distance, expect a modest R². That is an honest
-result for a pre-trip prediction task, not a failure.
-
-**Expected output:** Trained models, predictions, and experiment results
-saved for evaluation.
-
-### Notebook 03 --- Evaluation & Comparison
-
-**File:** `03_evaluation_comparison.ipynb`
-
-Tasks:
-
-1.  Evaluate models on the untouched June test period.
-2.  Report:
-    -   Mean Absolute Error (MAE).
-    -   Root Mean Squared Error (RMSE).
-    -   R².
-    -   Median Absolute Error (robust to the long tail of durations).
-3.  Compare the following experiments:
-    -   Yellow-only model.
-    -   Green-only model.
-    -   Combined Yellow + Green model, with and without `taxi_type`.
-4.  For the combined model, report results separately for Yellow and
-    Green test records.
-5.  Run cross-service generalization experiments:
-    -   Train on Yellow, test on Green.
-    -   Train on Green, test on Yellow.
-6.  Compare balanced and naturally sized combined training samples
-    (required: the imbalance is about 90:1).
-7.  Analyze residuals and feature importance (e.g., permutation
-    importance on the test set).
-8.  Break down errors by pickup borough to check whether the model
-    performs worse in some parts of the city.
-9.  Summarize findings, limitations, and possible improvements.
-
-**Expected output:** Final comparison tables, evaluation plots, and
-conclusions.
+The preliminary EDA feature screen is exploratory. Confirm the ranking
+under the final model and experiment design, and never use June to select
+features or hyperparameters. A modest R² is plausible because the
+prediction deliberately excludes actual route distance and live traffic.
 
 ------------------------------------------------------------------------
 
@@ -405,9 +304,9 @@ by about X minutes on a typical trip"), not just as metric values.
 
   Course report section            Source in this project
   -------------------------------- ------------------------------------
-  Data description, preprocessing  Notebook 01 + cleaning-rules table
-  Models and methods               Notebook 02
-  Evaluation, results              Notebook 03, experiment tables
+  Data description, preprocessing  Single notebook + cleaning-rules table
+  Models and methods               Single notebook
+  Evaluation, results              Single notebook + experiment tables
   Limitations, responsible use     Section 7 above
   Appendix (reproducibility)       README (download + run order)
 
@@ -445,7 +344,7 @@ uv add matplotlib seaborn plotly
 uv add jupyterlab ipykernel
 
 mkdir -p data/raw/yellow data/raw/green data/processed
-mkdir -p notebooks outputs/figures src
+mkdir -p notebooks outputs/figures
 ```
 
 Open the folder in VS Code and select the project's `.venv` Python
@@ -474,7 +373,7 @@ When asking an agent to work:
 8.  Require reproducible code and fixed random seeds where applicable.
 9.  Do not let it silently drop large numbers of rows; ask it to report
     row counts before and after each cleaning step.
-10. Review and run each notebook section before moving to the next.
+10. Review and run each section of the single notebook before moving on.
 
 **Important:** Do not assume that a file, column, or monthly release
 exists. Verify it from the downloaded data and official TLC
@@ -490,7 +389,7 @@ documentation.
 -   [x] Download the matching Yellow and Green monthly files.
 -   [x] Download the Taxi Zone Lookup CSV.
 -   [ ] Download the Taxi Zone Shapefile (for centroid distances).
--   [ ] Start `01_eda.ipynb`.
+-   [ ] Complete `notebooks/nyc_taxi_trip_duration.ipynb` end to end.
 -   [ ] Audit the files before cleaning or modeling.
 
 **First milestone:** Complete the data audit and confirm that the
