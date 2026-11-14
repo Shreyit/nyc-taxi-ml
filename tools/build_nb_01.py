@@ -32,9 +32,9 @@ touched.
 The audit runs on DuckDB so that 49 million rows are scanned inside the database rather than loaded into
 Pandas. Only aggregates and small tables are materialised in Python.
 
-Charts that compare Yellow and Green counts use **two y-axes** (left = Yellow, right = Green, colour-coded),
-because Yellow has ~80× the trips and a shared scale hides Green entirely. Bar heights are therefore not
-comparable between services; compare the shapes.
+Charts that compare Yellow and Green show each fleet as a **share of its own trips**, because Yellow has
+~80× the trips and a shared count axis hides Green entirely. Every distribution therefore sums to 100% and
+the two shapes overlay on one honest axis; the absolute volume difference lives in the imbalance chart.
 """
     ),
     code(
@@ -337,45 +337,40 @@ sample = con.execute(f'''
     USING SAMPLE 400000 ROWS (reservoir, 42)
 ''').df()
 
-from matplotlib.patches import Patch
-
-def dual_overlay(ax, yellow_values, green_values, bins, xlabel, title):
-    # Green carries roughly 1/80 of Yellow's trips, so a shared count axis makes it invisible.
-    # Each service therefore gets its own y-axis, colour-coded to match its bars.
-    ax.hist(yellow_values, bins=bins, color="#D6A900", alpha=0.85)
+def share_overlay(ax, yellow_values, green_values, bins, xlabel, title):
+    # Yellow carries ~80x the trips of Green, so a shared *count* axis hides Green completely.
+    # Each fleet is plotted as a share of its own trips, which puts both on one honest axis.
+    yellow_values = np.asarray(yellow_values)
+    green_values = np.asarray(green_values)
+    ax.hist(yellow_values, bins=bins, weights=np.full(len(yellow_values), 100 / len(yellow_values)),
+            color="#D6A900", alpha=0.55, label=f"yellow (n = {len(yellow_values):,})")
+    ax.hist(green_values, bins=bins, weights=np.full(len(green_values), 100 / len(green_values)),
+            color="#168A62", alpha=0.55, label=f"green (n = {len(green_values):,})")
     ax.set_xlabel(xlabel)
-    ax.set_ylabel("Yellow trips (left)", color="#8a6d00")
-    ax.tick_params(axis="y", colors="#8a6d00")
-    twin = ax.twinx()
-    twin.hist(green_values, bins=bins, color="#168A62", alpha=0.8)
-    twin.set_ylabel("Green trips (right)", color="#0f6b4a")
-    twin.tick_params(axis="y", colors="#0f6b4a")
-    twin.grid(False)
+    ax.set_ylabel("Share of own trips (%)")
     ax.set_title(title)
-    ax.legend(handles=[Patch(color="#D6A900", label="yellow (left axis)"),
-                       Patch(color="#168A62", label="green (right axis)")], loc="upper right")
-    return twin
+    ax.legend(loc="upper right")
 
 yellow_sample = sample[sample.taxi_type == "yellow"]
 green_sample = sample[sample.taxi_type == "green"]
 
 fig, axes = plt.subplots(1, 3, figsize=(16, 4.4))
-dual_overlay(axes[0], yellow_sample.duration_min[yellow_sample.duration_min < 120],
-             green_sample.duration_min[green_sample.duration_min < 120],
-             np.linspace(0, 120, 81), "Duration (minutes; trips of 120+ excluded)",
-             "Trip duration distribution")
+share_overlay(axes[0], yellow_sample.duration_min[yellow_sample.duration_min < 120],
+              green_sample.duration_min[green_sample.duration_min < 120],
+              np.linspace(0, 120, 81), "Duration (minutes; trips of 120+ excluded)",
+              "Trip duration distribution")
 axes[0].axvline(1, color="black", ls="--", lw=1); axes[0].axvline(180, color="black", ls="--", lw=1)
 
-dual_overlay(axes[1], yellow_sample.trip_distance[yellow_sample.trip_distance < 25],
-             green_sample.trip_distance[green_sample.trip_distance < 25],
-             np.linspace(0, 25, 81), "Distance (miles; trips of 25+ excluded)",
-             "Metered trip distance distribution")
+share_overlay(axes[1], yellow_sample.trip_distance[yellow_sample.trip_distance < 25],
+              green_sample.trip_distance[green_sample.trip_distance < 25],
+              np.linspace(0, 25, 81), "Distance (miles; trips of 25+ excluded)",
+              "Metered trip distance distribution")
 axes[1].axvline(0.1, color="black", ls="--", lw=1); axes[1].axvline(100, color="black", ls="--", lw=1)
 
-dual_overlay(axes[2], yellow_sample.fare_amount[yellow_sample.fare_amount < 100],
-             green_sample.fare_amount[green_sample.fare_amount < 100],
-             np.linspace(0, 100, 81), "Metered fare (USD; trips of 100+ excluded)",
-             "Fare amount distribution")
+share_overlay(axes[2], yellow_sample.fare_amount[yellow_sample.fare_amount < 100],
+              green_sample.fare_amount[green_sample.fare_amount < 100],
+              np.linspace(0, 100, 81), "Metered fare (USD; trips of 100+ excluded)",
+              "Fare amount distribution")
 axes[2].axvline(0, color="black", ls="--", lw=1)
 
 fig.tight_layout()
@@ -399,7 +394,7 @@ dropping those trips removed useful information for no benefit. The rule now onl
 of which there are none.
 
 Green trips are shorter and cheaper on average than Yellow trips, consistent with its outer-borough,
-non-airport footprint. Fare is clipped at \\$100 for visual inspection only; no fare values are altered.
+non-airport footprint. Trips above the plotted limits are left out of the histograms only; no values are altered.
 """
     ),
     md(

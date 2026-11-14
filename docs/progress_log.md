@@ -108,3 +108,14 @@ with independent axes because grouped bars on a twin axis are unreadable.
 Two secondary defects were fixed in the same pass: values above the plot limit are now **excluded** rather than
 clipped (clipping produced artificial spikes at the axis edge), and both notebooks state explicitly that bar
 heights are not comparable between services, only shapes. Verified by rendering the PNGs.
+
+### Chart fix, part 2 — shares instead of twin axes (2026-11-14)
+
+Twin axes made Green visible but invited a worse error: with each series autoscaled, Yellow's 30k-per-bin bars
+and Green's 400-per-bin bars looked equally tall. Count charts now plot **share of own trips (%)**, so each
+distribution sums to 100% and both shapes share one honest axis. Monthly volume is **indexed to each fleet's
+own annual mean**, which compares seasonal amplitude directly; the airport fare chart keeps two independent
+panels because each fleet's internal \$70 spike is the point there.
+
+The index exposed a wrong claim in the previous draft: Green does not "barely move" — it peaks in May at 112%
+of its mean and troughs in August at 93%, a 19% swing against Yellow's 29%. Text corrected.
