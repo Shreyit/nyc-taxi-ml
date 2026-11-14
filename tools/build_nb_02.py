@@ -21,9 +21,10 @@ observation informs features or cleaning choices that are still validated chrono
 **Method.** Aggregations run inside DuckDB over Parquet, so a full-year scan costs seconds and no query loads
 45 M rows into memory. Only plotting samples are materialised in Pandas.
 
-**Dual axes.** Yellow carries roughly 80× the trips of Green, so any chart that compares raw counts uses two
-y-axes: **left = Yellow, right = Green**, each colour-coded to match its series. Compare the *shape* of the two
-distributions, not the height of the bars — the axes are scaled independently.
+**Comparing the two fleets.** Yellow carries roughly 80× the trips of Green, so count axes hide Green completely.
+Distribution charts therefore plot each fleet as a **share of its own trips** — every distribution sums to 100%
+and the two shapes overlay on one axis. Percentage heights are not absolute volume; the 300k-row sample behind
+each chart means Green's tail bins hold only a handful of trips and should be read as noise.
 
 **How to read this notebook.** Every figure is followed by an interpretation that says what it shows and what it
 changes about the model. Where a pattern could tempt a leaky feature (fare, distance, drop-off time), that
@@ -43,7 +44,6 @@ import duckdb
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from matplotlib.ticker import FuncFormatter
 from IPython.display import display
 
 pd.set_option("display.width", 170)
@@ -71,24 +71,19 @@ def q(sql):
 def parquet(path=FEATURES):
     return f"read_parquet('{path}')"
 
-from matplotlib.patches import Patch
-
-def dual_overlay(ax, yellow_values, green_values, bins, xlabel, title, ylabel="trips"):
+def share_overlay(ax, yellow_values, green_values, bins, xlabel, title):
     # Yellow carries ~80x the trips of Green, so one shared count axis hides Green completely.
-    # Each service gets its own colour-coded y-axis instead.
-    ax.hist(yellow_values, bins=bins, color=COLORS["yellow"], alpha=0.85)
+    # Each fleet is plotted as a share of its own trips, putting both on a single honest axis.
+    yellow_values = np.asarray(yellow_values)
+    green_values = np.asarray(green_values)
+    ax.hist(yellow_values, bins=bins, weights=np.full(len(yellow_values), 100 / len(yellow_values)),
+            color=COLORS["yellow"], alpha=0.55, label=f"yellow (n = {len(yellow_values):,})")
+    ax.hist(green_values, bins=bins, weights=np.full(len(green_values), 100 / len(green_values)),
+            color=COLORS["green"], alpha=0.55, label=f"green (n = {len(green_values):,})")
     ax.set_xlabel(xlabel)
-    ax.set_ylabel(f"Yellow {ylabel} (left)", color="#8a6d00")
-    ax.tick_params(axis="y", colors="#8a6d00")
-    twin = ax.twinx()
-    twin.hist(green_values, bins=bins, color=COLORS["green"], alpha=0.8)
-    twin.set_ylabel(f"Green {ylabel} (right)", color="#0f6b4a")
-    twin.tick_params(axis="y", colors="#0f6b4a")
-    twin.grid(False)
+    ax.set_ylabel("Share of own trips (%)")
     ax.set_title(title)
-    ax.legend(handles=[Patch(color=COLORS["yellow"], label="yellow (left axis)"),
-                       Patch(color=COLORS["green"], label="green (right axis)")], loc="upper right")
-    return twin
+    ax.legend(loc="upper right")
 
 rows = q(f"SELECT count(*) AS trips FROM {parquet()}").iloc[0, 0]
 print(f"{rows:,} trips loaded from {FEATURES.name}")
@@ -117,22 +112,17 @@ fig, axes = plt.subplots(1, 2, figsize=(14, 4.6))
 yellow_monthly = monthly[monthly.taxi_type == "yellow"]
 green_monthly = monthly[monthly.taxi_type == "green"]
 
-# Volume differs by two orders of magnitude, so volume gets twin axes; duration shares one axis.
+# Volume differs by two orders of magnitude, so each fleet is indexed to its own annual mean;
+# the seasonal amplitude then compares directly and duration still shares one axis.
 volume_ax = axes[0]
-volume_ax.plot(yellow_monthly.month, yellow_monthly.trips / 1000, marker="o",
-               color=COLORS["yellow"], label="yellow (left axis)")
-volume_ax.set_xlabel("Month")
-volume_ax.set_ylabel("Yellow trips (thousands, left)", color="#8a6d00")
-volume_ax.tick_params(axis="y", colors="#8a6d00")
-volume_twin = volume_ax.twinx()
-volume_twin.plot(green_monthly.month, green_monthly.trips / 1000, marker="s",
-                 color=COLORS["green"], label="green (right axis)")
-volume_twin.set_ylabel("Green trips (thousands, right)", color="#0f6b4a")
-volume_twin.tick_params(axis="y", colors="#0f6b4a")
-volume_twin.grid(False)
-volume_ax.set_title("Monthly trip volume, 2025")
-volume_ax.legend(handles=[Patch(color=COLORS["yellow"], label="yellow (left axis)"),
-                          Patch(color=COLORS["green"], label="green (right axis)")], loc="lower right")
+for service, marker in (("yellow", "o"), ("green", "s")):
+    subset = monthly[monthly.taxi_type == service]
+    volume_ax.plot(subset.month, 100 * subset.trips / subset.trips.mean(), marker=marker,
+                   color=COLORS[service], label=service)
+volume_ax.axhline(100, color="grey", lw=0.8, ls=":")
+volume_ax.set(title="Monthly trip volume, indexed to each fleet's annual mean",
+              xlabel="Month", ylabel="Volume index (own annual mean = 100)")
+volume_ax.legend(title="Taxi type", loc="lower right")
 
 for service in ("yellow", "green"):
     subset = monthly[monthly.taxi_type == service]
@@ -141,8 +131,6 @@ axes[1].set(title="Median trip duration by month", xlabel="Month", ylabel="Media
 axes[1].legend(title="Taxi type", loc="lower right")
 for ax in (volume_ax, axes[1]):
     ax.set_xticks(range(1, 13))
-volume_ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:,.0f}"))
-volume_twin.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:,.0f}"))
 fig.tight_layout()
 fig.savefig(FIGURES / "02_monthly_volume_duration.png", bbox_inches="tight")
 plt.show()
@@ -159,13 +147,16 @@ print(f"Yellow volume: lowest {yellow.trips.min():,} (month {yellow.trips.idxmin
     ),
     md(
         """
-**Reading the volume panel:** the right axis (Green) spans roughly 44–52k trips while the left (Yellow) spans
-3.2–4.1M, so the two lines must be read against their own axes — Green never approaches Yellow's volume.
-Twin axes are used because a shared scale flattens Green to a horizontal line.
+**Reading the volume panel:** each fleet is indexed to its own annual mean (mean = 100), so the vertical
+distance from the dotted line is the seasonal swing in percent. On a raw count axis Green would be a flat
+line near zero; the index shows its swing instead, without implying the two fleets are comparable in size.
 
-**Interpretation.** Yellow volume swings by about a quarter around the year — May and December are the busiest
-months, August the quietest — while Green barely moves, which fits a small fleet serving local demand rather
-than a large fleet chasing citywide demand.
+**Interpretation.** Both fleets follow the same seasonal shape — volume peaks in **May** (Yellow 111% of its
+annual mean, Green 112%) and bottoms out in **August** (Yellow 86%, Green 93%) — so the demand cycle is
+citywide, not Yellow-specific. The amplitude differs: Yellow runs 86–111% of its mean and Green 93–112%, a
+peak-to-trough swing of 29% against 19%. Green's shallower trough fits a small fleet whose riders are less
+able to postpone trips, and it means a model trained on January–August sees a smaller volume range for Green
+than for Yellow.
 
 The more consequential pattern is the duration drift: Yellow's median rises from **11.73 minutes in January to
 14.88 in December**, a **27% increase**, with only a small dip in November. Green follows the same direction but
@@ -285,10 +276,10 @@ yellow_sample = sample[sample.taxi_type == "yellow"].duration_min
 green_sample = sample[sample.taxi_type == "green"].duration_min
 
 fig, axes = plt.subplots(1, 2, figsize=(14, 4.4))
-dual_overlay(axes[0], yellow_sample[yellow_sample < 120], green_sample[green_sample < 120],
+share_overlay(axes[0], yellow_sample[yellow_sample < 120], green_sample[green_sample < 120],
              np.linspace(1, 120, 100), "Duration (minutes; trips of 120+ excluded)",
              "Trip duration on a linear scale")
-dual_overlay(axes[1], np.log1p(yellow_sample), np.log1p(green_sample), np.linspace(0, 5.2, 100),
+share_overlay(axes[1], np.log1p(yellow_sample), np.log1p(green_sample), np.linspace(0, 5.2, 100),
              "log(1 + duration in minutes)", "Trip duration on a log scale")
 fig.tight_layout()
 fig.savefig(FIGURES / "02_duration_distribution.png", bbox_inches="tight")
@@ -515,9 +506,9 @@ yellow_fare = sample[sample.taxi_type == "yellow"].fare_amount
 green_fare = sample[sample.taxi_type == "green"].fare_amount
 
 fig, axes = plt.subplots(1, 2, figsize=(14, 4.4))
-dual_overlay(axes[0], yellow_fare[yellow_fare < 120], green_fare[green_fare < 120],
+share_overlay(axes[0], yellow_fare[yellow_fare < 120], green_fare[green_fare < 120],
              np.linspace(0, 120, 120), "Fare (USD; trips of 120+ excluded)", "Metered fare")
-dual_overlay(axes[1], np.log1p(yellow_fare), np.log1p(green_fare), np.linspace(0, 5.5, 120),
+share_overlay(axes[1], np.log1p(yellow_fare), np.log1p(green_fare), np.linspace(0, 5.5, 120),
              "log(1 + fare in USD)", "Metered fare on a log scale")
 fig.tight_layout()
 fig.savefig(FIGURES / "02_fare_distribution.png", bbox_inches="tight")
