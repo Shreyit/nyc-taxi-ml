@@ -135,3 +135,9 @@ straight-line geometry (0.79 / 0.72), not to 1.0.
 Findings that changed the prose: January has no history at any level (3.32 M NULLs, 7.4%), so the fallback chain is
 insurance rather than a working feature — from February the route level supplies 99.6-100% of rows; and validation
 and test months are the best-served (99.9% / 100%), not the worst.
+
+**Addendum.** The notebook now ends with a printed feature list (§7): all 69 columns with dtype, group and
+stage-1/2 role, an assertion that every contract feature exists in the file, and a sanity block for the seven
+derived features. Six derived columns were added in this pass that the plan promised but the first draft omitted:
+`pickup_hour_frac`, `hour_sin`/`hour_cos`, `dow_sin`/`dow_cos`, `pu_service_zone` and `centroid_distance_ratio`.
+Stage-1 inputs are now 49.

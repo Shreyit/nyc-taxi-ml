@@ -48,6 +48,7 @@ FIGURES = ROOT / "outputs" / "figures"
 TMP.mkdir(parents=True, exist_ok=True)
 FIGURES.mkdir(parents=True, exist_ok=True)
 
+RAW = ROOT / "data" / "raw"
 FEATURES = PROCESSED / "taxi_features_2025.parquet"
 MODEL_READY = PROCESSED / "taxi_model_features_2025.parquet"
 
@@ -61,6 +62,8 @@ con.execute("SET threads TO 6")
 con.execute("SET memory_limit = '6GB'")
 con.execute(f"SET temp_directory = '{TMP}'")
 con.execute(f"CREATE OR REPLACE VIEW trips AS SELECT * FROM read_parquet('{FEATURES}')")
+con.execute(f"CREATE OR REPLACE VIEW zone_lookup AS "
+            f"SELECT * FROM read_csv_auto('{RAW / 'taxi_zone_lookup.csv'}', header=true)")
 
 rows = con.execute("SELECT count(*) FROM trips").fetchone()[0]
 print(f"{rows:,} trips, {len(con.execute('DESCRIBE trips').df())} columns, "
@@ -83,12 +86,14 @@ Keeping it executable here means a column added later cannot quietly become a mo
         """
 COLUMNS = [c[0] for c in con.execute("DESCRIBE trips").fetchall()]
 
-TEMPORAL = ["pickup_hour_of_day", "day_of_week", "day_of_month", "month", "week_of_year",
+TEMPORAL = ["pickup_hour_of_day", "pickup_hour_frac", "hour_sin", "hour_cos",
+            "day_of_week", "dow_sin", "dow_cos", "day_of_month", "month", "week_of_year",
             "is_weekend", "is_rush_hour", "is_night", "is_holiday", "is_ny_state_holiday",
             "days_to_nearest_holiday"]
-ZONE = ["pu_location_id", "do_location_id", "pu_borough", "do_borough", "cross_borough"]
+ZONE = ["pu_location_id", "do_location_id", "pu_borough", "do_borough", "pu_service_zone",
+        "cross_borough"]
 GEOMETRY = ["pu_lat", "pu_lon", "do_lat", "do_lon", "haversine_km", "manhattan_km",
-            "bearing_sin", "bearing_cos"]
+            "centroid_distance_ratio", "bearing_sin", "bearing_cos"]
 FLAGS = ["is_airport_pu", "is_airport_do", "is_cbd_pu", "is_cbd_do"]
 WEATHER = ["temperature_c", "relative_humidity_pct", "precipitation_mm", "snowfall_cm",
            "windspeed_kmh", "is_precipitating"]
@@ -126,6 +131,13 @@ assert not leaked
     ),
     md(
         """
+Six of these are derived rather than carried through, and all six are built in §5: `pickup_hour_frac` (hour plus
+minutes as a fraction), `hour_sin` / `hour_cos` and `dow_sin` / `dow_cos` (cyclic encodings, because hour 23 and
+hour 0 are adjacent but numerically far apart), `pu_service_zone` (the TLC service-zone class of the pickup zone,
+which separates airports and the Manhattan core from the outer boroughs), and `centroid_distance_ratio` (this trip's
+straight-line distance against the median for its borough pair — a proxy for "is this an unusually long trip for
+this origin-destination combination").
+
 `pickup_minute` and `time_of_day_bucket` are deliberately excluded even though they are known at pickup:
 minute-of-hour has no measurable effect on duration and only adds noise, and the bucket duplicates
 `pickup_hour_of_day`. `pu_zone_name` / `do_zone_name` are human labels for display in the app, not model inputs —
@@ -423,10 +435,24 @@ relying on the borough prior.
     ),
     code(
         """
+# Geographic medians per borough pair: a property of the city, not of any target, so the whole year may be used.
+con.execute('''
+    CREATE OR REPLACE TABLE pair_median AS
+    SELECT pu_borough, do_borough, median(haversine_km) AS pair_median_km
+    FROM trips GROUP BY 1, 2
+''')
+
 con.execute('''
     CREATE OR REPLACE VIEW model_features AS
     SELECT
       t.*,
+      t.pickup_hour_of_day + t.pickup_minute / 60.0 AS pickup_hour_frac,
+      sin(2 * pi() * (t.pickup_hour_of_day + t.pickup_minute / 60.0) / 24) AS hour_sin,
+      cos(2 * pi() * (t.pickup_hour_of_day + t.pickup_minute / 60.0) / 24) AS hour_cos,
+      sin(2 * pi() * t.day_of_week / 7) AS dow_sin,
+      cos(2 * pi() * t.day_of_week / 7) AS dow_cos,
+      sz.service_zone AS pu_service_zone,
+      t.haversine_km / nullif(pm.pair_median_km, 0) AS centroid_distance_ratio,
       coalesce(r.route_trip_count_prior, 0) AS route_trip_count_prior,
       coalesce(r.route_mean_duration_prior, zh.pu_zone_hour_mean_duration_prior,
                z.pu_zone_mean_duration_prior, b.borough_pair_mean_duration_prior,
@@ -457,6 +483,8 @@ con.execute('''
      AND b.pu_borough = t.pu_borough AND b.do_borough = t.do_borough
     LEFT JOIN global_hist g
       ON g.taxi_type = t.taxi_type AND g.month = t.month
+    LEFT JOIN zone_lookup sz ON sz.LocationID = t.pu_location_id
+    LEFT JOIN pair_median pm ON pm.pu_borough = t.pu_borough AND pm.do_borough = t.do_borough
 ''')
 
 coverage = con.execute('''
@@ -643,11 +671,94 @@ display(con.execute(f'''
     ),
     md(
         """
+## 7. Full feature list
+
+Every column in the output, with the group it belongs to. This is the list Phases 5–7 build their matrices from,
+and the assertion at the bottom is what stops a feature from being silently dropped or renamed between notebooks.
+"""
+    ),
+    code(
+        """
+KEY_COLUMNS = ["pickup_datetime", "pickup_hour", "pickup_date", "source_month"]
+LIST_GROUPS = {
+    "temporal": TEMPORAL, "zone": ZONE, "geometry": GEOMETRY, "flags": FLAGS, "weather": WEATHER,
+    "context": CONTEXT, "history_duration": HISTORY_DURATION, "history_fare": HISTORY_FARE,
+    "target": TARGETS, "key": KEY_COLUMNS,
+    "diagnostic": [c for c in POST_TRIP if c not in KEY_COLUMNS]
+                  + ["rain_mm", "weather_code", "history_source"],
+}
+group_of = {c: g for g, cols in LIST_GROUPS.items() for c in cols}
+
+schema = con.execute(f"DESCRIBE SELECT * FROM '{MODEL_READY}'").df()
+features = (schema[["column_name", "column_type"]]
+            .rename(columns={"column_name": "column", "column_type": "dtype"}))
+features["group"] = features.column.map(group_of).fillna("unclassified")
+features["stage1_input"] = features.column.isin(STAGE1_INPUTS)
+features["stage2_only"] = features.column.isin(STAGE2_INPUTS) & ~features.stage1_input
+
+missing = sorted(set(STAGE1_INPUTS) - set(features.column))
+unclassified = features.loc[features.group == "unclassified", "column"].tolist()
+
+print(f"{len(features)} columns in {MODEL_READY.name}  |  {int(features.stage1_input.sum())} stage-1 inputs"
+      f"  |  {int(features.stage2_only.sum())} stage-2 additions")
+print()
+for name, cols in LIST_GROUPS.items():
+    print(f"{name:17s} {len(cols):2d}  {' '.join(cols)}")
+print()
+print(f"missing from the file: {missing or 'none'}")
+print(f"unclassified columns:  {unclassified or 'none'}")
+assert not missing, missing
+display(features.set_index("column"))
+
+# Sanity of the seven features built in this notebook: no nulls, and values in range.
+derived = con.execute(f'''
+    SELECT count(*) FILTER (WHERE pickup_hour_frac IS NULL) AS null_hour_frac,
+           count(*) FILTER (WHERE pu_service_zone IS NULL) AS null_service_zone,
+           count(*) FILTER (WHERE centroid_distance_ratio IS NULL) AS null_distance_ratio,
+           min(pickup_hour_frac) AS min_hour_frac, max(pickup_hour_frac) AS max_hour_frac,
+           round(min(hour_sin), 2) AS min_hour_sin, round(max(hour_sin), 2) AS max_hour_sin,
+           round(median(centroid_distance_ratio), 2) AS median_distance_ratio,
+           count(DISTINCT pu_service_zone) AS service_zones
+    FROM '{MODEL_READY}'
+''').df()
+display(derived.T.rename(columns={0: "value"}))
+
+display(con.execute(f'''
+    SELECT pu_service_zone, count(*) AS trips, round(avg(duration_min), 2) AS mean_duration
+    FROM '{MODEL_READY}' GROUP BY 1 ORDER BY 2 DESC
+''').df())
+"""
+    ),
+    md(
+        """
+**Engineered in this notebook** (as opposed to carried through from Phase 2): the six route/zone history columns,
+the two fare history columns, `history_source`, and the seven derived features — `pickup_hour_frac`, `hour_sin`,
+`hour_cos`, `dow_sin`, `dow_cos`, `pu_service_zone`, `centroid_distance_ratio`. Sixteen columns in total; the rest
+are the Phase 2 temporal, zone, geometry, weather and holiday fields.
+
+**Carried but not features.** `rain_mm` duplicates `precipitation_mm` (rain is the catch-all minus snow),
+`weather_code` is a categorical label whose meaning is lost as a raw integer, and `history_source` is a diagnostic
+that records which fallback level supplied the prior. All three stay in the file for later analysis and none enters
+the model.
+
+One gap the sanity table shows: `centroid_distance_ratio` is `NULL` on 289 rows. Those are same-zone pairs
+where the borough-pair median distance is zero, so the ratio is undefined — 6e-6 of the data, left as
+`NULL` rather than filled with an arbitrary value.
+
+**Deliberately absent.** `estimated_distance_km` from the plan is not a separate column: `manhattan_km` *is* that
+estimate (L1 distance on a locally projected grid, the closer of the two geometry measures to street distance), so
+Stage 2 consumes it under its own name rather than aliasing it. `pred_duration_min` is a Stage-1 output and belongs
+to Phase 5. `bearing_deg` is used only as the sin/cos pair; the raw angle is not a feature.
+
+**Not checked here.** Whether these features are *useful* is a modelling question. This notebook shows history
+correlates 0.84 with duration; it does not show that adding weather or `centroid_distance_ratio` improves a model,
+and no importance ranking is produced until Phase 6.
+
 ### What the next phases inherit
 
 | Item | Value |
 |---|---|
-| File | `data/processed/taxi_model_features_2025.parquet` (1.61 GB, 62 columns) |
+| File | `data/processed/taxi_model_features_2025.parquet` (§7 prints its row, column and feature counts) |
 | Rows | all 45,071,006 cleaned trips, no sampling here (sampling is a training-time decision) |
 | Missing history | 3,316,103 rows (all of January) — models must accept `NULL` |
 | History features | 8 columns plus `history_source`; prior statistics use months 1…*m*−1 only |
