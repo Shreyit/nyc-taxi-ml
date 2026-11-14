@@ -7,8 +7,8 @@ Short ADR-style records. Each entry: context, decision, consequence, alternative
 ## D-01 Primary dataset vintage: 2025 (not 2026)
 
 **Context.** The existing repository holds Jan–Jun 2026 TLC files. The project specification requires the complete 2025 calendar year as the primary modelling dataset.
-**Decision.** All modelling, features and reported metrics use 2025 only. The 2026 raw and processed files stay on disk untouched but are never globbed by the 2025 pipeline (`*_2025-*.parquet` globs only), so the two vintages cannot be silently mixed.
-**Consequence.** The 2026 artifacts become reference-only. Any notebook assertion about the training window can be checked by looking at minimum/maximum pickup timestamps.
+**Decision.** All modelling, features and reported metrics use 2025 only. The 2026 **raw** files stay on disk but are never globbed by the 2025 pipeline (`*_2025-*.parquet` globs only), so the two vintages cannot be silently mixed. The 2026 processed intermediates were deleted during the later repository cleanup; they were derived from the raw files and are reproducible.
+**Consequence.** The 2026 raw data is reference-only. Any notebook assertion about the training window can be checked by looking at minimum/maximum pickup timestamps.
 **Alternatives.** Mixing both years (rejected: violates the explicit instruction and would blend two congestion-pricing regimes and post-2026 fare schedules).
 
 ## D-02 DuckDB as the analytical engine, Pandas only on samples
@@ -27,7 +27,7 @@ Short ADR-style records. Each entry: context, decision, consequence, alternative
 
 **Context.** Duration and fare are both derived from post-trip data. TLC `trip_distance`, `fare_amount`, tips, tolls and surcharges are only known once the trip ends.
 **Decision.** Production feature sets contain only: pickup timestamp (`hour`, `weekday`, `month`, holiday/rush flags), pickup and drop-off zone IDs, derived zone geometry (centroids, Haversine, Manhattan-grid distance, bearing, borough of each end, cross-borough flag, airport/CBD flags), taxi type, passenger count, and leakage-safe historical route aggregates built from earlier periods. Actual distance, duration, fare, tips, tolls, `RatecodeID`, `payment_type`, `store_and_fwd_flag` and all surcharge fields are excluded from predictors.
-**Consequence.** Expected duration R² is modest (~0.3–0.5) — this is an honest pre-trip estimate, not a navigation ETA. Actual `trip_distance` is retained for diagnostics/benchmarking only, in clearly separated variables prefixed `diag_`.
+**Consequence.** Duration accuracy is expected to be modest — the earlier screening run on 2026 data reached R² ≈ 0.30, so anything far above that would suggest leakage and must be investigated rather than celebrated. This is an honest pre-trip estimate, not a navigation ETA. Actual `trip_distance` is retained for diagnostics and benchmarking only, carried as `trip_distance_mi` plus the `is_distance_zero` / `is_distance_implausible` flags, and is never a predictor.
 
 ## D-05 Two-stage fare model fed by the predicted duration
 

@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1043" width="1200" height="1043" role="img" aria-labelledby="pipelineTitle pipelineDesc">
+<title id="pipelineTitle">Project pipeline: seven stages from raw TLC data to an integrated prediction pipeline</title>
+<desc id="pipelineDesc">Raw TLC Yellow and Green records for January to December 2025 flow into data audit and EDA, then preprocessing and feature engineering, then two parallel models for duration and fare, then evaluation and explainability, ending in an integrated prediction pipeline.</desc>
+<style>
+  text { font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; }
+  .stage { font-size: 34px; font-weight: 700; fill: #11161d; }
+  .sub { font-size: 22px; font-weight: 400; fill: #3f4753; }
+  .stage-s { font-size: 30px; font-weight: 700; fill: #11161d; }
+  .sub-s { font-size: 20px; font-weight: 400; fill: #3f4753; }
+</style>
+
+<rect width="1200" height="1043" fill="#ffffff"/>
+
+<rect x="24" y="24" width="1152" height="120" rx="16" fill="#e7f3ec"/>
+<text x="600" y="82" class="stage" text-anchor="middle">Raw TLC Data</text>
+<text x="600" y="116" class="sub" text-anchor="middle">Yellow + Green | January–December 2025</text>
+
+<g stroke="#5f6672" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <line x1="600" y1="152" x2="600" y2="182"/>
+  <polyline points="592,174 600,184 608,174"/>
+</g>
+
+<rect x="24" y="199" width="1152" height="120" rx="16" fill="#e7f3ec"/>
+<text x="600" y="257" class="stage" text-anchor="middle">01 Data Audit → 02 EDA</text>
+<text x="600" y="291" class="sub" text-anchor="middle">Schema, quality, distributions</text>
+
+<g stroke="#5f6672" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <line x1="600" y1="327" x2="600" y2="357"/>
+  <polyline points="592,349 600,359 608,349"/>
+</g>
+
+<rect x="24" y="374" width="1152" height="120" rx="16" fill="#e7f3ec"/>
+<text x="600" y="432" class="stage" text-anchor="middle">03 Preprocessing &amp; Feature Engineering</text>
+<text x="600" y="466" class="sub" text-anchor="middle">Zones · weather · holidays · route history</text>
+
+<g stroke="#5f6672" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <line x1="600" y1="502" x2="600" y2="532"/>
+  <polyline points="592,524 600,534 608,524"/>
+</g>
+
+<rect x="24" y="549" width="556" height="120" rx="16" fill="#e8e9fa"/>
+<text x="302" y="601" class="stage-s" text-anchor="middle">04 Duration Model</text>
+<text x="302" y="635" class="sub-s" text-anchor="middle">Predicted duration</text>
+
+<rect x="620" y="549" width="556" height="120" rx="16" fill="#e8e9fa"/>
+<text x="898" y="601" class="stage-s" text-anchor="middle">05 Fare Model</text>
+<text x="898" y="635" class="sub-s" text-anchor="middle">Predicted fare</text>
+
+<g stroke="#5f6672" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <line x1="600" y1="677" x2="600" y2="707"/>
+  <polyline points="592,699 600,709 608,699"/>
+</g>
+
+<rect x="24" y="724" width="1152" height="120" rx="16" fill="#e7f3ec"/>
+<text x="600" y="782" class="stage" text-anchor="middle">06 Evaluation &amp; Explainability</text>
+<text x="600" y="816" class="sub" text-anchor="middle">Metrics · residuals · SHAP</text>
+
+<g stroke="#5f6672" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <line x1="600" y1="852" x2="600" y2="882"/>
+  <polyline points="592,874 600,884 608,874"/>
+</g>
+
+<rect x="24" y="899" width="1152" height="120" rx="16" fill="#e7f3ec"/>
+<text x="600" y="957" class="stage" text-anchor="middle">07 Integrated Prediction Pipeline</text>
+<text x="600" y="991" class="sub" text-anchor="middle">Duration · fare · arrival time · Streamlit app</text>
+</svg>

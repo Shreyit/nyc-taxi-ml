@@ -14,7 +14,7 @@ Source: TLC Trip Record Data, `https://d37ci6vzurychx.cloudfront.net/trip-data/{
 |---|---|---|---|
 | `tpep_pickup_datetime` / `lpep_pickup_datetime` | `pickup_datetime` | timestamp | Local New York time, no timezone |
 | `tpep_dropoff_datetime` / `lpep_dropoff_datetime` | `dropoff_datetime` | timestamp | Local New York time |
-| `passenger_count` | `passenger_count` | `passenger_count` | int | `BIGINT` (Yellow), `DOUBLE` (Green); ~25% missing in Yellow |
+| `passenger_count` | `passenger_count` | int | `BIGINT` (Yellow), `DOUBLE` (Green); 23.8% missing in Yellow, 8.4% in Green |
 | `trip_distance` | `trip_distance_mi` | double | Metered miles. **Post-trip: diagnostic only** |
 | `PULocationID`, `DOLocationID` | `pu_zone`, `do_zone` | int | TLC zone 1–263; 264/265 are "Unknown" placeholders |
 | `fare_amount` | `fare_amount` | double | Metered fare before tips and tolls. **Stage-2 target** |
@@ -128,10 +128,11 @@ Same 45,071,006 rows with temporal, geospatial, holiday and weather fields added
   true pickup point is unknown before the trip.
 - **One weather station for the whole city.** Precipitation and temperature are city-level.
 - **Holiday distance is federal only**, so `days_to_nearest_holiday` ignores NY-state-only observances.
-- **`passenger_count` is unreliable** (~25% missing for Yellow) and must not be a primary driver.
+- **`passenger_count` is unreliable** (23.8% missing for Yellow, 8.4% for Green) and must not be a primary driver.
 - **Zones 264/265 removed**, so trips with unknown locations are invisible to the models.
-- **1.9% of retained rows have a zero metered distance and 1,956 have an absurd one** (up to 397,994 miles).
-  Both keep valid fare and duration targets, so they stay in the dataset behind `is_distance_zero` and
+- **829,086 retained rows (1.84%) have a zero metered distance**, and 1,025,389 (2.28%) fall outside the
+  0.1–100 mile plausibility band, including 1,956 rows over 100 miles (maximum 397,994). They keep valid
+  fare and duration targets, so they stay in the dataset behind `is_distance_zero` and
   `is_distance_implausible`. Any analysis of distance must filter on those flags; the models never see the
   field at all.
 - **Negative fares are excluded.** 71% of the excluded fare rows carry `payment_type = 0` and 34% have a
