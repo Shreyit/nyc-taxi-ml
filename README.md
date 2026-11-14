@@ -38,8 +38,8 @@ prediction interval, using only information available **before** the trip starts
 | 0 | Repository audit, decisions, progress log (`docs/`) | complete |
 | 1 | Source verification, feature contract, split plan | complete |
 | 2 | 2025 ingestion, cleaning, geospatial/weather integration, audit notebook, tests | complete |
-| 3 | Exploratory data analysis (notebook `02`) | next |
-| 4 | Feature engineering + leakage-safe history (notebook `03`) | pending |
+| 3 | Exploratory data analysis (notebook `02`) | complete |
+| 4 | Feature engineering + leakage-safe history (notebook `03`) | next |
 | 5 | Duration and fare models (notebooks `04`, `05`) | pending |
 | 6 | Evaluation, SHAP explainability (notebook `06`) | pending |
 | 7 | End-to-end demo, Streamlit app (notebook `07`, `app/`) | pending |
