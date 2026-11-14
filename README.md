@@ -118,13 +118,36 @@ nyc-taxi-ml/
 
 ## Quickstart
 
-Requires [uv](https://docs.astral.sh/uv/).
+Requires [uv](https://docs.astral.sh/uv/). The raw data (~860 MB) is **not in Git**; each of us
+downloads it once from the TLC website.
 
 ```bash
 git clone https://github.com/Shreyit/nyc-taxi-ml.git
 cd nyc-taxi-ml
-uv sync
+uv sync                                # creates .venv with all dependencies
+uv run python scripts/get_data.py      # downloads the 24 monthly files + zone files into data/raw/
+```
 
+After the download, `data/raw/` should look like this:
+
+```text
+data/raw/
+├── yellow/yellow_tripdata_2025-01.parquet … 2025-12.parquet   (12 files, ~840 MB)
+├── green/green_tripdata_2025-01.parquet  … 2025-12.parquet    (12 files, ~19 MB)
+├── taxi_zone_lookup.csv
+└── taxi_zones.zip
+```
+
+Then open **`notebooks/nyc_taxi_trip_duration.ipynb`** in VS Code or Jupyter, select the `.venv (3.15.1)`
+kernel and run all cells. The notebook builds `data/processed/` itself; no other manual step is needed.
+Re-running `get_data.py` skips files that are already there.
+
+> `data/` and `*.parquet` are in `.gitignore`, so the data can never be committed by accident.
+
+<details>
+<summary><b>Older pipeline (scripts used by notebooks 01–03)</b></summary>
+
+```bash
 # 1. download and validate the 24 monthly files, zone data, weather and holidays
 uv run python -m src.ingestion.download_tlc
 uv run python -m src.ingestion.download_external
@@ -137,8 +160,7 @@ uv run python -m src.features.build_features
 uv run pytest -q
 ```
 
-Then open the notebooks in order and run them top to bottom. Select the project's `.venv`
-interpreter and the `nyc-taxi-ml` Jupyter kernel.
+</details>
 
 ## Documentation
 
