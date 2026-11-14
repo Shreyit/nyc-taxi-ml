@@ -119,3 +119,19 @@ panels because each fleet's internal \$70 spike is the point there.
 
 The index exposed a wrong claim in the previous draft: Green does not "barely move" — it peaks in May at 112%
 of its mean and troughs in August at 93%, a 19% swing against Yellow's 29%. Text corrected.
+
+### Phase 4 — feature engineering and leakage-safe history (2026-11-14)
+
+`notebooks/03_data_preprocessing_and_feature_engineering.ipynb` (29 cells, executed clean) fixes the feature
+contract as executable code and builds the historical features. Output:
+`data/processed/taxi_model_features_2025.parquet` — 45,071,006 rows, 62 columns, 1.61 GB.
+
+Aggregates are cut by month and accumulated with a window that excludes the current month: route -> zone x hour ->
+pu zone -> borough pair -> fleet fallback. Three leakage tests run in the notebook: rebuilding month 3 from months
+1-3 only reproduces the full-run values exactly (41,722 rows, 0 mismatches), 200 sampled route-months match an
+independent recount, and the prior's correlation with the target is 0.84 (Yellow) / 0.73 (Green) — comparable to
+straight-line geometry (0.79 / 0.72), not to 1.0.
+
+Findings that changed the prose: January has no history at any level (3.32 M NULLs, 7.4%), so the fallback chain is
+insurance rather than a working feature — from February the route level supplies 99.6-100% of rows; and validation
+and test months are the best-served (99.9% / 100%), not the worst.

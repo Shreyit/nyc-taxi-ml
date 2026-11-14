@@ -63,3 +63,26 @@ already derives distance from zone geometry only.
 **Alternatives considered.** Keeping the 0.1–100 mile window (rejected: drops valid trips for a field the model
 does not use); keeping negative fares and imputing them (rejected: fabricates a target); keeping rows with
 negative distances (rejected: the meter reading is corrupt in a way that suggests the record itself is broken).
+
+## D-08 Historical aggregates are expanding means, and January has none
+
+**Context.** The plan named the route history features `route_median_duration`. A median cannot be accumulated
+across months: computing "the median of every earlier month for this route" requires retaining all prior rows per
+route (hundreds of thousands for a busy pair), whereas a mean is exactly recoverable from per-month sums and counts.
+The same constraint applies at zone, zone x hour, borough-pair and fleet level.
+
+**Decision.** The history features are **count-weighted means over strictly earlier months**, named `*_mean_*_prior`,
+computed by a DuckDB window over a pre-aggregated (route x month) table. All prior statistics exclude the current
+month by construction, so a trip can never contribute to its own feature.
+
+**Consequence.** Because the cumulative window excludes the current month and 2025 begins in January, **January has
+no history at any level**: 3,316,103 rows (7.4%) carry `NULL` history. This is accepted rather than imputed — a
+whole-year average would inject November and December targets into January training rows — which makes "tolerates
+missing values" a hard requirement on the duration and fare models. Means are also sensitive to the long right tail
+of duration; `route_trip_count_prior` is supplied alongside so a model can discount thin history, and the target is
+already cleaned to 1-180 minutes.
+
+**Alternatives considered.** Median via a stored list per route (rejected: memory and runtime explode on busy
+pairs); monthly medians combined by weighted average (rejected: not a median of the underlying data, and the error
+is unbounded where month volumes differ); dropping January from training (rejected: 7.4% of the data and the only
+winter transition available).
