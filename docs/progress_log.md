@@ -79,3 +79,21 @@ Removed (all recoverable from git history):
 **Verified after cleanup:** `pytest` 8 passed; `assets/hero.svg` and `assets/imbalance.svg` byte-identical
 except for the intentional imbalance update; `assets/imbalance.svg` parses as valid XML; README references
 no deleted file.
+
+---
+
+## Phase 3 — Exploratory data analysis (2026-11-14)
+
+Built `notebooks/02_exploratory_data_analysis.ipynb` (43 cells) with a reproducible builder and executed it
+top to bottom against the full 45,071,006-row feature table.
+
+- **Verified**: 0 errors; 10 figures written to `outputs/figures/02_*.png`.
+- Findings that changed the plan: median Yellow duration rises 11.73 → 14.88 min from Jan to Dec (+27%), so the
+  Nov–Dec test window is structurally slower than training; pickups are afternoon-slowest (Thursday 2 pm,
+  15.7 min) not rush-hour-slowest; binary `is_rush_hour` moves the weekday median by only 0.13 min; rain adds
+  ~0.3 min regardless of intensity; pickup borough moves the median by 27 min against 3.3 for hour and 0.2 for
+  weather; 31.6% of Yellow airport trips sit at the \$70 JFK flat fare; 81% of all trips are Manhattan→Manhattan.
+- Data-quality finding: 8,096 long Green trips (1.4% of Green) have a median metered fare of \$5.80 against a
+  total of \$56.73, i.e. a corrupted fare field. Documented, not hand-patched.
+- Two interpretation errors were caught and corrected after the first execution (heat-map peak location and the
+  Tuesday-morning figure); the notebook text now matches the measured values.
