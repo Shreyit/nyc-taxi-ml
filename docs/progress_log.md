@@ -56,3 +56,23 @@ distance is a diagnostic, never a predictor, so it must not gate a row's surviva
 - Notebook 01 rebuilt and re-executed: 0 errors; the stage-removal table now reports positive counts.
 - Tests extended with the zero-distance flag check: **8 passed**.
 - Recorded as decision D-07.
+
+---
+
+## Repository cleanup + asset refresh (2026-11-14)
+
+The project owner explicitly lifted the "never modify SVG" rule for `assets/imbalance.svg` so the chart
+reflects the 2025 dataset; `assets/hero.svg` was not touched.
+
+Removed (all recoverable from git history):
+
+- `notebooks/nyc_taxi_trip_duration.ipynb` — the superseded 2026 single-notebook analysis, replaced by notebooks 01–07
+- `docs/streamlit_extension_plan.md` — a "planned, not started" design note, superseded by the real app
+- `NYC_Taxi_ML_Project_Brief.md` — the original 2026 scope brief, contradicted by the current dataset
+- 7 stale `outputs/figures/eda_*.png` produced by the retired notebook
+- `data/processed/{taxi,yellow,green}_cleaned_2026H1.parquet` — 459 MB of derived 2026 artefacts; the 2026 **raw** files stay
+- `.DS_Store`, `.pytest_cache/`, `logs/`, `data/tmp/`, `__pycache__/`
+
+**Verified after cleanup:** `pytest` 8 passed; `assets/hero.svg` and `assets/imbalance.svg` byte-identical
+except for the intentional imbalance update; `assets/imbalance.svg` parses as valid XML; README references
+no deleted file.

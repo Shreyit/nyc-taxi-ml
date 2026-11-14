@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 190" width="1200" height="190" role="img" aria-labelledby="t">
-<title id="t">Trips Jan to Jun 2026: Yellow 22,836,530 vs Green 255,175 (about 90 to 1)</title>
+<title id="t">Trips Jan to Dec 2025: Yellow 44,511,782 vs Green 559,224 (about 80 to 1)</title>
 <style>
   text { font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; }
   .lbl { font-size: 18px; font-weight: 700; }
@@ -7,23 +7,23 @@
   .cap { font-size: 14px; fill: #8b90b8; }
 </style>
 <rect width="1200" height="190" rx="18" fill="#141735"/>
-<text x="40" y="42" font-size="20" font-weight="800" fill="#ffffff">Trips, January – June 2026</text>
-<text x="1160" y="42" class="cap" text-anchor="end">raw rows, before cleaning</text>
+<text x="40" y="42" font-size="20" font-weight="800" fill="#ffffff">Trips, January – December 2025</text>
+<text x="1160" y="42" class="cap" text-anchor="end">rows used for modelling, after cleaning</text>
 
 <text x="40" y="92" class="lbl" fill="#ffd23f">Yellow</text>
 <rect x="140" y="74" width="860" height="26" rx="6" fill="#ffffff" fill-opacity=".05"/>
 <rect x="140" y="74" width="860" height="26" rx="6" fill="#ffc914">
   <animate attributeName="width" values="0;860;860" keyTimes="0;.35;1" dur="6s" repeatCount="indefinite"/>
 </rect>
-<text x="1160" y="93" class="num" text-anchor="end">22,836,530</text>
+<text x="1160" y="93" class="num" text-anchor="end">44,511,782</text>
 
 <text x="40" y="142" class="lbl" fill="#3ddc84">Green</text>
 <rect x="140" y="124" width="860" height="26" rx="6" fill="#ffffff" fill-opacity=".05"/>
-<rect x="140" y="124" width="10" height="26" rx="3" fill="#2ecc71">
-  <animate attributeName="width" values="0;10;10" keyTimes="0;.35;1" dur="6s" repeatCount="indefinite"/>
+<rect x="140" y="124" width="11" height="26" rx="3" fill="#2ecc71">
+  <animate attributeName="width" values="0;11;11" keyTimes="0;.35;1" dur="6s" repeatCount="indefinite"/>
 </rect>
-<text x="165" y="143" class="cap" fill="#3ddc84">≈ 1/90 of Yellow</text>
-<text x="1160" y="143" class="num" text-anchor="end">255,175</text>
+<text x="165" y="143" class="cap" fill="#3ddc84">≈ 1/80 of Yellow</text>
+<text x="1160" y="143" class="num" text-anchor="end">559,224</text>
 
-<text x="40" y="176" class="cap">Bars to scale. This imbalance is why the plan uses a sampled Yellow set and a balanced combined experiment (C3).</text>
+<text x="40" y="176" class="cap">Bars to scale. This imbalance is why Yellow training rows are sampled and why every metric is reported per taxi type.</text>
 </svg>
