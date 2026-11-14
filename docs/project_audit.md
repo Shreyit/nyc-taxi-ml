@@ -148,3 +148,18 @@ tests/                          smoke tests for ingestion manifest, feature buil
 ```
 
 Notebooks stay self-contained (their own implementation, no imports from `src/`); `src/` carries the automation, the persisted feature contract and the inference path that the Streamlit app calls.
+
+---
+
+## Post-audit update (2026-11-14)
+
+This document deliberately records the repository **as it was found**, so a few statements are historical and no
+longer describe the current tree:
+
+- The retired notebook, the obsolete Streamlit plan, the original 2026 brief, the seven stale EDA figures and the
+  derived `*_2026H1.parquet` files were removed during a later cleanup at the owner's request. The 2026 **raw**
+  files remain, and every deleted file is recoverable from git history.
+- The README was rewritten with the owner's explicit permission. `assets/hero.svg` is still embedded and unchanged.
+- `assets/imbalance.svg` was updated to the 2025 counts (44,511,782 Yellow vs 559,224 Green) at the owner's
+  explicit request, which overrides the original "never modify SVG" rule for that one file.
+- `assets/pipeline.svg` is a new asset created for the README pipeline diagram; no existing SVG was regenerated.

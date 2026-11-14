@@ -33,6 +33,9 @@ Outcome: existing work is methodologically sound but 2026-bound and stops at dur
 
 ## Phase 2 — Data engineering (2026-11-14)
 
+> The row counts below are from the first cleaning pass; they were superseded by the distance-filter
+> correction later in this log. Current figures: 45,071,006 rows (91.36% Yellow, 94.56% Green).
+
 - Built `src/ingestion/download_tlc.py`: restartable monthly downloader with `.part` staging, Parquet footer validation, SHA-256, row counts and a JSON manifest. **Verified**: 24/24 files downloaded, 49,313,977 rows, 0.84 GB; re-run prints `[skip]` for every valid file; `--verify` passes.
 - Built `src/ingestion/download_external.py`: zone shapefile + lookup, centroids (EPSG:2263 → WGS84), 2025 hourly weather, 2025 holiday calendar. **Verified**: 263 centroids, 8,760 weather hours, 11 federal + 14 NY-state holiday days.
 - Built `src/preprocessing/build_clean_dataset.py`: unified Yellow/Green schema, 7 sequential cleaning stages with an independent row count per stage, exact-duplicate removal. **Verified**: 48,722,602 Yellow → 43,499,110 (89.28%); 591,375 Green → 546,507 (92.41%); total 44,045,617 rows, span 2025-01-01 → 2025-12-31, 74 s, 0.55 GB.

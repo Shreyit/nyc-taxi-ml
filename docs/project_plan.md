@@ -116,7 +116,10 @@ Everything above (except the target-derived history, which is recomputed for far
 ### 4.4 Target definitions
 
 - `duration_min` = dropoff − pickup, minutes. Cleaning window 1–180.
-- `fare_amount` = metered fare before tips and tolls. Cleaning window \$2.50–\$500 for yellow; JFK flat \$70 and rate-code anomalies handled by clipping, not deletion, and documented.
+- `fare_amount` = metered fare before tips and tolls. Cleaning window (0, 500] USD for both services: a
+  non-positive fare means a voided or corrupted ticket and cannot serve as a regression target, while a fare
+  above \$500 is not a city trip. JFK's flat \$70 and similar airport fares are kept, not clipped, and the
+  airport flags let the model learn them.
 
 ---
 

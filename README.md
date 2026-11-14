@@ -28,7 +28,7 @@ fare using that predicted duration.
 | **1** | `duration_min` | pickup time, pickup and drop-off zone, taxi type, geometry, weather, holiday flags, leakage-safe route history | minutes |
 | **2** | `fare_amount` | everything in stage 1 **plus the stage-1 duration prediction** and historical fare aggregates | USD |
 
-The application returns the predicted duration, the predicted fare, the estimated arrival time and a
+The application will return the predicted duration, the predicted fare, the estimated arrival time and a
 prediction interval, using only information available **before** the trip starts.
 
 ## Status
@@ -38,7 +38,7 @@ prediction interval, using only information available **before** the trip starts
 | 0 | Repository audit, decisions, progress log (`docs/`) | complete |
 | 1 | Source verification, feature contract, split plan | complete |
 | 2 | 2025 ingestion, cleaning, geospatial/weather integration, audit notebook, tests | complete |
-| 3 | Exploratory data analysis (notebook `02`) | in progress |
+| 3 | Exploratory data analysis (notebook `02`) | next |
 | 4 | Feature engineering + leakage-safe history (notebook `03`) | pending |
 | 5 | Duration and fare models (notebooks `04`, `05`) | pending |
 | 6 | Evaluation, SHAP explainability (notebook `06`) | pending |
@@ -46,22 +46,10 @@ prediction interval, using only information available **before** the trip starts
 
 ## Pipeline
 
-```mermaid
-flowchart LR
-    A[("TLC Parquet<br/>Yellow + Green<br/>Jan–Dec 2025<br/>24 files")] --> B["DuckDB<br/>clean + unify"]
-    Z[("Taxi zones<br/>lookup + shapefile")] --> B
-    W[("Open-Meteo<br/>hourly 2025")] --> C
-    H[("US + NY<br/>holidays 2025")] --> C
-    B --> C["DuckDB<br/>geo + weather<br/>features"]
-    C --> D["Stage 1<br/>duration model"]
-    D --> E["Stage 2<br/>fare model"]
-    E --> F["Streamlit app<br/>duration · fare · ETA"]
+<img src="assets/pipeline.svg" alt="Pipeline: raw TLC data for 2025, then data audit and EDA, then preprocessing and feature engineering, then two parallel models for duration and fare, then evaluation and explainability, ending in an integrated prediction pipeline" width="100%"/>
 
-    style A fill:#ffc914,stroke:#c98f00,color:#1a1a1a
-    style Z fill:#2ecc71,stroke:#1b8a4a,color:#0f3d22
-    style E fill:#1b1f4a,stroke:#3ddc84,color:#ffffff
-    style F fill:#1b1f4a,stroke:#3ddc84,color:#ffffff
-```
+External inputs — the TLC zone lookup and shapefile, hourly weather, and the holiday calendar — enter
+at step 03, together with the leakage-safe route history built from earlier months only.
 
 ## Data
 
@@ -118,14 +106,14 @@ nyc-taxi-ml/
 │   ├── ingestion/            download_tlc.py, download_external.py
 │   ├── preprocessing/        build_clean_dataset.py
 │   ├── features/             build_features.py
-│   ├── models/               training (stage 1 and stage 2)
-│   ├── evaluation/           metrics and reports
-│   └── serving/              shared inference path for the app
-├── app/                      Streamlit application
+│   ├── models/               (planned) training for stages 1 and 2
+│   ├── evaluation/           (planned) metrics and reports
+│   └── serving/              (planned) shared inference path for the app
+├── app/                      (planned) Streamlit application
 ├── tests/                    integration checks over the built artefacts
 ├── tools/                    reproducible notebook builders
 ├── docs/                     audit, plan, decisions, progress log, data dictionary
-└── reports/                  figures and metrics tables
+└── reports/                  (planned) figures and metrics tables
 ```
 
 ## Quickstart
@@ -166,7 +154,7 @@ interpreter and the `nyc-taxi-ml` Jupyter kernel.
 
 TLC records are public and de-identified, and locations are only given at taxi-zone level. The models
 predict trip duration and fare; they do not explain *why* a trip is slow, so no causal claims are made.
-Errors are reported by taxi type, borough, airport vs non-airport and rush hour vs off-peak, because
+Errors will be reported by taxi type, borough, airport vs non-airport and rush hour vs off-peak, because
 areas with fewer trips may receive less accurate predictions. These are estimates to support human
 judgement, not a substitute for it.
 
