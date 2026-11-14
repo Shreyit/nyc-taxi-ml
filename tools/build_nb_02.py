@@ -21,6 +21,10 @@ observation informs features or cleaning choices that are still validated chrono
 **Method.** Aggregations run inside DuckDB over Parquet, so a full-year scan costs seconds and no query loads
 45 M rows into memory. Only plotting samples are materialised in Pandas.
 
+**Dual axes.** Yellow carries roughly 80× the trips of Green, so any chart that compares raw counts uses two
+y-axes: **left = Yellow, right = Green**, each colour-coded to match its series. Compare the *shape* of the two
+distributions, not the height of the bars — the axes are scaled independently.
+
 **How to read this notebook.** Every figure is followed by an interpretation that says what it shows and what it
 changes about the model. Where a pattern could tempt a leaky feature (fare, distance, drop-off time), that
 temptation is named explicitly.
@@ -67,6 +71,25 @@ def q(sql):
 def parquet(path=FEATURES):
     return f"read_parquet('{path}')"
 
+from matplotlib.patches import Patch
+
+def dual_overlay(ax, yellow_values, green_values, bins, xlabel, title, ylabel="trips"):
+    # Yellow carries ~80x the trips of Green, so one shared count axis hides Green completely.
+    # Each service gets its own colour-coded y-axis instead.
+    ax.hist(yellow_values, bins=bins, color=COLORS["yellow"], alpha=0.85)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(f"Yellow {ylabel} (left)", color="#8a6d00")
+    ax.tick_params(axis="y", colors="#8a6d00")
+    twin = ax.twinx()
+    twin.hist(green_values, bins=bins, color=COLORS["green"], alpha=0.8)
+    twin.set_ylabel(f"Green {ylabel} (right)", color="#0f6b4a")
+    twin.tick_params(axis="y", colors="#0f6b4a")
+    twin.grid(False)
+    ax.set_title(title)
+    ax.legend(handles=[Patch(color=COLORS["yellow"], label="yellow (left axis)"),
+                       Patch(color=COLORS["green"], label="green (right axis)")], loc="upper right")
+    return twin
+
 rows = q(f"SELECT count(*) AS trips FROM {parquet()}").iloc[0, 0]
 print(f"{rows:,} trips loaded from {FEATURES.name}")
 """
@@ -90,17 +113,36 @@ monthly = q(f'''
 display(monthly.pivot(index="month", columns="taxi_type", values="trips").round(0).astype("Int64"))
 display(monthly.pivot(index="month", columns="taxi_type", values="median_duration").round(2))
 
-fig, axes = plt.subplots(1, 2, figsize=(14, 4.5))
+fig, axes = plt.subplots(1, 2, figsize=(14, 4.6))
+yellow_monthly = monthly[monthly.taxi_type == "yellow"]
+green_monthly = monthly[monthly.taxi_type == "green"]
+
+# Volume differs by two orders of magnitude, so volume gets twin axes; duration shares one axis.
+volume_ax = axes[0]
+volume_ax.plot(yellow_monthly.month, yellow_monthly.trips / 1000, marker="o",
+               color=COLORS["yellow"], label="yellow (left axis)")
+volume_ax.set_xlabel("Month")
+volume_ax.set_ylabel("Yellow trips (thousands, left)", color="#8a6d00")
+volume_ax.tick_params(axis="y", colors="#8a6d00")
+volume_twin = volume_ax.twinx()
+volume_twin.plot(green_monthly.month, green_monthly.trips / 1000, marker="s",
+                 color=COLORS["green"], label="green (right axis)")
+volume_twin.set_ylabel("Green trips (thousands, right)", color="#0f6b4a")
+volume_twin.tick_params(axis="y", colors="#0f6b4a")
+volume_twin.grid(False)
+volume_ax.set_title("Monthly trip volume, 2025")
+volume_ax.legend(handles=[Patch(color=COLORS["yellow"], label="yellow (left axis)"),
+                          Patch(color=COLORS["green"], label="green (right axis)")], loc="lower right")
+
 for service in ("yellow", "green"):
     subset = monthly[monthly.taxi_type == service]
-    axes[0].plot(subset.month, subset.trips / 1000, marker="o", label=service, color=COLORS[service])
     axes[1].plot(subset.month, subset.median_duration, marker="o", label=service, color=COLORS[service])
-axes[0].set(title="Monthly trip volume, 2025", xlabel="Month", ylabel="Trips (thousands)")
 axes[1].set(title="Median trip duration by month", xlabel="Month", ylabel="Median duration (minutes)")
-axes[0].set_xticks(range(1, 13)); axes[1].set_xticks(range(1, 13))
-for ax in axes:
-    ax.legend(title="Taxi type")
-axes[0].yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:,.0f}"))
+axes[1].legend(title="Taxi type", loc="lower right")
+for ax in (volume_ax, axes[1]):
+    ax.set_xticks(range(1, 13))
+volume_ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:,.0f}"))
+volume_twin.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:,.0f}"))
 fig.tight_layout()
 fig.savefig(FIGURES / "02_monthly_volume_duration.png", bbox_inches="tight")
 plt.show()
@@ -117,6 +159,10 @@ print(f"Yellow volume: lowest {yellow.trips.min():,} (month {yellow.trips.idxmin
     ),
     md(
         """
+**Reading the volume panel:** the right axis (Green) spans roughly 44–52k trips while the left (Yellow) spans
+3.2–4.1M, so the two lines must be read against their own axes — Green never approaches Yellow's volume.
+Twin axes are used because a shared scale flattens Green to a horizontal line.
+
 **Interpretation.** Yellow volume swings by about a quarter around the year — May and December are the busiest
 months, August the quietest — while Green barely moves, which fits a small fleet serving local demand rather
 than a large fleet chasing citywide demand.
@@ -235,16 +281,15 @@ stats = q(f'''
 display(stats)
 
 sample = q(f"SELECT taxi_type, duration_min FROM {parquet()} USING SAMPLE 300000 ROWS (reservoir, {SEED})")
-fig, axes = plt.subplots(1, 2, figsize=(14, 4.2))
-for service in ("yellow", "green"):
-    subset = sample[sample.taxi_type == service].duration_min
-    axes[0].hist(subset, bins=100, alpha=0.55, label=service, color=COLORS[service])
-    axes[1].hist(np.log1p(subset), bins=100, alpha=0.55, label=service, color=COLORS[service])
-axes[0].set(title="Trip duration on a linear scale", xlabel="Duration (minutes)", ylabel="Trips in sample")
-axes[1].set(title="Trip duration on a log scale", xlabel="log(1 + duration in minutes)",
-            ylabel="Trips in sample")
-for ax in axes:
-    ax.legend(title="Taxi type")
+yellow_sample = sample[sample.taxi_type == "yellow"].duration_min
+green_sample = sample[sample.taxi_type == "green"].duration_min
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 4.4))
+dual_overlay(axes[0], yellow_sample[yellow_sample < 120], green_sample[green_sample < 120],
+             np.linspace(1, 120, 100), "Duration (minutes; trips of 120+ excluded)",
+             "Trip duration on a linear scale")
+dual_overlay(axes[1], np.log1p(yellow_sample), np.log1p(green_sample), np.linspace(0, 5.2, 100),
+             "log(1 + duration in minutes)", "Trip duration on a log scale")
 fig.tight_layout()
 fig.savefig(FIGURES / "02_duration_distribution.png", bbox_inches="tight")
 plt.show()
@@ -466,15 +511,14 @@ fare_stats = q(f'''
 display(fare_stats)
 
 sample = q(f"SELECT taxi_type, fare_amount FROM {parquet()} USING SAMPLE 300000 ROWS (reservoir, {SEED + 1})")
-fig, axes = plt.subplots(1, 2, figsize=(14, 4.2))
-for service in ("yellow", "green"):
-    subset = sample[sample.taxi_type == service].fare_amount
-    axes[0].hist(subset.clip(0, 120), bins=120, alpha=0.55, label=service, color=COLORS[service])
-    axes[1].hist(np.log1p(subset), bins=120, alpha=0.55, label=service, color=COLORS[service])
-axes[0].set(title="Metered fare (clipped at $120 for display)", xlabel="Fare (USD)", ylabel="Trips in sample")
-axes[1].set(title="Metered fare on a log scale", xlabel="log(1 + fare in USD)", ylabel="Trips in sample")
-for ax in axes:
-    ax.legend(title="Taxi type")
+yellow_fare = sample[sample.taxi_type == "yellow"].fare_amount
+green_fare = sample[sample.taxi_type == "green"].fare_amount
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 4.4))
+dual_overlay(axes[0], yellow_fare[yellow_fare < 120], green_fare[green_fare < 120],
+             np.linspace(0, 120, 120), "Fare (USD; trips of 120+ excluded)", "Metered fare")
+dual_overlay(axes[1], np.log1p(yellow_fare), np.log1p(green_fare), np.linspace(0, 5.5, 120),
+             "log(1 + fare in USD)", "Metered fare on a log scale")
 fig.tight_layout()
 fig.savefig(FIGURES / "02_fare_distribution.png", bbox_inches="tight")
 plt.show()
@@ -487,7 +531,7 @@ plt.show()
 despite being the cheaper service, has a *higher* 99th percentile (\\$75.1 against \\$70.2) because of a handful of
 long airport runs.
 
-The floor matters for metrics: MAPE becomes unstable when the denominator is $5, so fare accuracy will be judged
+The floor matters for metrics: MAPE becomes unstable when the denominator is \\$5, so fare accuracy will be judged
 on MAE and RMSE, with MAPE reported only above a sensible fare threshold.
 """
     ),
@@ -504,18 +548,21 @@ airport = q(f'''
 display(airport)
 
 hist = q(f'''
-    SELECT floor(fare_amount) AS fare_dollar, count(*) AS trips
+    SELECT taxi_type, floor(fare_amount) AS fare_dollar, count(*) AS trips
     FROM {parquet()} WHERE (is_airport_pu OR is_airport_do) AND floor(fare_amount) BETWEEN 40 AND 90
-    GROUP BY 1 ORDER BY 1
+    GROUP BY 1, 2 ORDER BY 1, 2
 ''')
-fig, ax = plt.subplots(figsize=(9, 4.2))
-ax.bar(hist.fare_dollar, hist.trips, color="#7A6BA8")
-ax.set(title="Fare distribution for airport trips: the JFK flat fare is visible",
-       xlabel="Whole-dollar fare (USD)", ylabel="Trips")
-peak = hist.loc[hist.trips.idxmax()]
-ax.annotate("JFK flat fare", xy=(peak.fare_dollar, peak.trips),
-            xytext=(peak.fare_dollar + 4, peak.trips * 0.75),
-            arrowprops={"arrowstyle": "->", "color": "black"})
+# Airport volumes differ by ~180x between services, so each panel keeps its own y-axis.
+fig, axes = plt.subplots(1, 2, figsize=(13, 4.2))
+for ax, service in zip(axes, ("yellow", "green")):
+    subset = hist[hist.taxi_type == service]
+    ax.bar(subset.fare_dollar, subset.trips, color=COLORS[service])
+    ax.set(title=f"Airport trips — {service}: {int(subset.trips.sum()):,} with fares 40–90 USD",
+           xlabel="Whole-dollar fare (USD)", ylabel="Trips (own axis)")
+    peak = subset.loc[subset.trips.idxmax()]
+    ax.annotate(f"JFK flat fare: {peak.fare_dollar:.0f} USD", xy=(peak.fare_dollar, peak.trips),
+                xytext=(peak.fare_dollar - 22, peak.trips * 0.8),
+                arrowprops={"arrowstyle": "->", "color": "black"}, fontsize=9)
 fig.tight_layout()
 fig.savefig(FIGURES / "02_airport_flat_fare.png", bbox_inches="tight")
 plt.show()

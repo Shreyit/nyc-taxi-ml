@@ -97,3 +97,14 @@ top to bottom against the full 45,071,006-row feature table.
   total of \$56.73, i.e. a corrupted fare field. Documented, not hand-patched.
 - Two interpretation errors were caught and corrected after the first execution (heat-map peak location and the
   Tuesday-morning figure); the notebook text now matches the measured values.
+
+### Chart fix — dual axes for Yellow vs Green (2026-11-14)
+
+Green carries ~1/80 of Yellow's trips, so shared count axes rendered it invisible. Every count-based comparison
+now uses twin y-axes (left = Yellow, right = Green, both colour-coded) in notebooks 01 and 02: duration, fare
+and distance histograms, monthly volume, and the airport fare distribution. The airport chart became two panels
+with independent axes because grouped bars on a twin axis are unreadable.
+
+Two secondary defects were fixed in the same pass: values above the plot limit are now **excluded** rather than
+clipped (clipping produced artificial spikes at the axis edge), and both notebooks state explicitly that bar
+heights are not comparable between services, only shapes. Verified by rendering the PNGs.
