@@ -31,6 +31,10 @@ touched.
 
 The audit runs on DuckDB so that 49 million rows are scanned inside the database rather than loaded into
 Pandas. Only aggregates and small tables are materialised in Python.
+
+Charts that compare Yellow and Green counts use **two y-axes** (left = Yellow, right = Green, colour-coded),
+because Yellow has ~80× the trips and a shared scale hides Green entirely. Bar heights are therefore not
+comparable between services; compare the shapes.
 """
     ),
     code(
@@ -154,7 +158,7 @@ Mapping decisions used from here on:
 `Airport_fee`, `ehail_fee` and `trip_type` are post-trip or service-specific financial fields and are not
 carried into the modelling table. `passenger_count` exists in both but is stored as `BIGINT` for Yellow and
 `DOUBLE` for Green, so both are cast to the same integer type. Critically, both services now contain
-`congestion_surcharge` (NY State, $2.50/trip) **and** `cbd_congestion_fee` (the MTA Congestion Relief Zone
+`congestion_surcharge` (NY State, \\$2.50/trip) **and** `cbd_congestion_fee` (the MTA Congestion Relief Zone
 charge that started on 5 January 2025). Both are billed after the trip and are therefore excluded from
 predictors.
 """
@@ -333,20 +337,47 @@ sample = con.execute(f'''
     USING SAMPLE 400000 ROWS (reservoir, 42)
 ''').df()
 
-fig, axes = plt.subplots(1, 3, figsize=(15, 4))
-for service, color in (("yellow", "#D6A900"), ("green", "#168A62")):
-    sub = sample[sample.taxi_type == service]
-    axes[0].hist(sub.duration_min.clip(0, 120), bins=80, alpha=0.6, label=service, color=color)
-    axes[1].hist(sub.trip_distance.clip(0, 25), bins=80, alpha=0.6, label=service, color=color)
-    axes[2].hist(sub.fare_amount.clip(0, 100), bins=80, alpha=0.6, label=service, color=color)
+from matplotlib.patches import Patch
+
+def dual_overlay(ax, yellow_values, green_values, bins, xlabel, title):
+    # Green carries roughly 1/80 of Yellow's trips, so a shared count axis makes it invisible.
+    # Each service therefore gets its own y-axis, colour-coded to match its bars.
+    ax.hist(yellow_values, bins=bins, color="#D6A900", alpha=0.85)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel("Yellow trips (left)", color="#8a6d00")
+    ax.tick_params(axis="y", colors="#8a6d00")
+    twin = ax.twinx()
+    twin.hist(green_values, bins=bins, color="#168A62", alpha=0.8)
+    twin.set_ylabel("Green trips (right)", color="#0f6b4a")
+    twin.tick_params(axis="y", colors="#0f6b4a")
+    twin.grid(False)
+    ax.set_title(title)
+    ax.legend(handles=[Patch(color="#D6A900", label="yellow (left axis)"),
+                       Patch(color="#168A62", label="green (right axis)")], loc="upper right")
+    return twin
+
+yellow_sample = sample[sample.taxi_type == "yellow"]
+green_sample = sample[sample.taxi_type == "green"]
+
+fig, axes = plt.subplots(1, 3, figsize=(16, 4.4))
+dual_overlay(axes[0], yellow_sample.duration_min[yellow_sample.duration_min < 120],
+             green_sample.duration_min[green_sample.duration_min < 120],
+             np.linspace(0, 120, 81), "Duration (minutes; trips of 120+ excluded)",
+             "Trip duration distribution")
 axes[0].axvline(1, color="black", ls="--", lw=1); axes[0].axvline(180, color="black", ls="--", lw=1)
-axes[0].set(title="Trip duration distribution", xlabel="Duration (minutes, clipped at 120)", ylabel="Trips in sample")
+
+dual_overlay(axes[1], yellow_sample.trip_distance[yellow_sample.trip_distance < 25],
+             green_sample.trip_distance[green_sample.trip_distance < 25],
+             np.linspace(0, 25, 81), "Distance (miles; trips of 25+ excluded)",
+             "Metered trip distance distribution")
 axes[1].axvline(0.1, color="black", ls="--", lw=1); axes[1].axvline(100, color="black", ls="--", lw=1)
-axes[1].set(title="Metered trip distance distribution", xlabel="Distance (miles, clipped at 25)", ylabel="Trips in sample")
+
+dual_overlay(axes[2], yellow_sample.fare_amount[yellow_sample.fare_amount < 100],
+             green_sample.fare_amount[green_sample.fare_amount < 100],
+             np.linspace(0, 100, 81), "Metered fare (USD; trips of 100+ excluded)",
+             "Fare amount distribution")
 axes[2].axvline(0, color="black", ls="--", lw=1)
-axes[2].set(title="Fare amount distribution", xlabel="Metered fare (USD, clipped at 100)", ylabel="Trips in sample")
-for ax in axes:
-    ax.legend(title="Taxi type")
+
 fig.tight_layout()
 fig.savefig(FIGURES / "01_distributions.png", bbox_inches="tight")
 plt.show()
@@ -368,7 +399,7 @@ dropping those trips removed useful information for no benefit. The rule now onl
 of which there are none.
 
 Green trips are shorter and cheaper on average than Yellow trips, consistent with its outer-borough,
-non-airport footprint. Fare is clipped at \$100 for visual inspection only; no fare values are altered.
+non-airport footprint. Fare is clipped at \\$100 for visual inspection only; no fare values are altered.
 """
     ),
     md(
