@@ -22,3 +22,4 @@ __pycache__/
 logs/
 .pytest_cache/
 *.log
+notebooks/.tmp/
