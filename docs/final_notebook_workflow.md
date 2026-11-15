@@ -25,7 +25,7 @@ maps to a report section.
 | 4 | EDA | 3 | duration distribution, hour/weekday, boroughs, distance, Yellow vs Green |
 | 5 | Features | 4 | time features, zone/borough, airport flags, centroid distance, route history from earlier months |
 | 6 | Train / validation / test + sampling | 4 | split table, sample sizes |
-| 7 | Baseline and models | 5 | median baselines, Linear Regression, Decision Tree, Random Forest, HistGradientBoosting |
+| 7 | Baseline and models | 5 | median baselines, Linear Regression, KNN (FAISS), Decision Tree, Random Forest, HistGradientBoosting, XGBoost, LightGBM, CatBoost (optional), TabPFN on 10k rows (optional) |
 | 8 | Evaluation on validation, then test | 6 | MAE, RMSE, R², Median AE table |
 | 9 | Research question: with vs without `taxi_type` | 6, 7 | C1 vs C2, errors per fleet, cross-fleet D/E |
 | 10 | Errors and interpretation | 7 | residuals, error by borough / hour, feature importance |
