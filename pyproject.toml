@@ -4,6 +4,7 @@ version = "0.1.0"
 requires-python = ">=3.14"
 dependencies = [
     "duckdb>=2.0.0",
+    "faiss-cpu>=1.16.0",
     "geopandas>=1.2.0",
     "holidays>=0.108",
     "ipykernel>=7.4.0",
