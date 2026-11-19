@@ -12,7 +12,7 @@ maps to a report section.
 | Task | Regression: `duration_min` = drop-off − pickup |
 | Research question | Can trip duration be predicted from pre-trip time and location features, and does knowing the taxi type (Yellow/Green) improve the prediction? |
 | Split | Chronological: Jan–Aug train, Sep–Oct validation, Nov–Dec test |
-| Fare model | Dropped from the graded notebook (future work / Streamlit extension). Keeps the project focused. |
+| Fare model | Implemented as the second stage of the consolidated notebook, fed by predicted duration and leakage-safe fare history. |
 
 ## Notebook outline
 
@@ -26,11 +26,12 @@ maps to a report section.
 | 5 | Features | 4 | time features, zone/borough, airport flags, centroid distance, route history from earlier months |
 | 6 | Train / validation / test + sampling | 4 | split table, sample sizes |
 | 7 | Baseline and models | 5 | median baselines, Linear Regression, KNN (FAISS), Decision Tree, Random Forest, HistGradientBoosting, XGBoost, LightGBM |
-| 8 | Evaluation on validation, then test | 6 | MAE, RMSE, R², Median AE table |
-| 9 | Research question: with vs without `taxi_type` | 6, 7 | C1 vs C2, errors per fleet, cross-fleet D/E |
-| 10 | Errors and interpretation | 7 | residuals, error by borough / hour, feature importance |
-| 11 | Limitations and responsible use | 8 | |
-| 12 | Conclusion | 9 | |
+| 8 | Duration evaluation on validation, then test | 6 | MAE, RMSE, R², Median AE table |
+| 9 | Fare prediction: Stage 2 | 5, 6 | OOF duration, fare history, fare baselines/models and end-to-end test |
+| 10 | Research question: with vs without `taxi_type` | 6, 7 | C1 vs C2, errors per fleet, cross-fleet D/E |
+| 11 | Errors and interpretation | 7 | duration/fare residuals, error by borough/hour/length, feature importance |
+| 12 | Limitations and responsible use | 8 | |
+| 13 | Conclusion | 9 | |
 
 ## Corrections from the earlier notebooks
 

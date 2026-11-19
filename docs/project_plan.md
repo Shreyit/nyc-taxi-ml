@@ -114,9 +114,9 @@ Everything above (except the target-derived history, which is recomputed for far
 - `route_median_fare`, `pu_zone_median_fare` — expanding-window historical fare aggregates;
 - `estimated_distance_km` from geometry (never TLC `trip_distance`).
 
-The fare stage remains part of the original project roadmap and supporting artefacts, but it is outside the
-consolidated graded duration-only notebook unless the course deliverable is later expanded. If it is included,
-fare target cleaning and fare-history construction must follow the same chronological and cross-fit rules.
+The fare stage is implemented in the consolidated final notebook. Fare target cleaning and fare-history
+construction follow the same chronological and cross-fit rules. The deployable Stage-2 result uses predicted
+duration; a diagnostic Stage-2 variant using actual duration is clearly labelled as non-deployable.
 
 ### 4.3 Excluded everywhere (post-trip or leaky)
 
@@ -160,7 +160,7 @@ notebooks/02_exploratory_data_analysis.ipynb
 notebooks/03_data_preprocessing_and_feature_engineering.ipynb
 notebooks/nyc_taxi_trip_duration.ipynb       final consolidated duration project
 notebooks/04_duration_prediction.ipynb       optional split-out implementation
-notebooks/05_fare_prediction.ipynb           future original fare-stage implementation
+notebooks/05_fare_prediction.ipynb           optional split-out implementation; also implemented in the final notebook
 notebooks/06_model_evaluation_and_explainability.ipynb
 notebooks/07_end_to_end_pipeline.ipynb
 src/ingestion/   download_tlc.py (manifest, resume, validate), download_external.py (weather, zones, holidays)
@@ -190,6 +190,7 @@ tests/           ingestion, feature contract, serving smoke tests
 | Leakage-safe route history | Implemented; pooled across fleets for the C1/C2 fairness comparison |
 | Chronological split | Implemented: Jan–Aug train, Sep–Oct validation, Nov–Dec test |
 | Baselines and duration models | Implemented in the consolidated notebook |
+| Fare Stage 2 | Implemented: prior-month fare history, predicted-duration input, fare baselines and models |
 | Taxi-type research question | Implemented C1/C2 plus A/B/D/E experiments |
 | Error analysis | Residual, borough, hour, length-bucket and permutation-importance code implemented |
 | Responsible-use and conclusions | Implemented and tied to outputs rather than placeholders |

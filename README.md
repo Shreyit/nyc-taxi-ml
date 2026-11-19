@@ -15,6 +15,7 @@ The implementation is anchored in the original audit, EDA and feature-engineerin
 
 - Data: full-year 2025 NYC TLC Yellow and Green trip records
 - Target: `duration_min = dropoff_datetime - pickup_datetime`
+- Second stage: `fare_amount` from predicted duration and pre-trip features
 - Split: Jan-Aug train, Sep-Oct validation, Nov-Dec test
 - Research question: do calendar, geography, weather, route history and taxi type predict trip duration?
 - Evaluation: MAE, RMSE, R² and median absolute error
@@ -56,7 +57,10 @@ The notebook builds cleaned and feature tables directly from `data/raw` and writ
 8. Compare medians, route baselines, linear regression, decision trees, random forest,
    HistGradientBoosting, LightGBM, XGBoost and FAISS KNN.
 9. Evaluate with-vs-without taxi type and cross-fleet experiments.
-10. Report residuals, borough/hour/length errors and permutation importance.
+10. Build out-of-fold duration estimates for Stage-1 training.
+11. Train fare baselines and Linear, Random Forest, LightGBM and XGBoost fare models.
+12. Evaluate end-to-end fare prediction on the test set.
+13. Report duration/fare residuals, borough/hour/length errors and permutation importance.
 
 ## Leakage controls
 
@@ -67,6 +71,8 @@ The notebook builds cleaned and feature tables directly from `data/raw` and writ
 - Month and week-of-year remain available as original calendar features.
 - Passenger count is not used to delete rows; missing values are imputed only for model matrices.
 - Weather is joined on pickup hour and is city-level, not route-level.
+- Fare history uses strictly earlier months, and fare training uses out-of-fold duration estimates rather than actual duration.
+- Actual duration is available only in a diagnostic fare upper bound.
 - The test window is not used for model or feature selection.
 
 ## Documentation
