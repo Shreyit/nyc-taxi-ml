@@ -1,7 +1,11 @@
 # Phase 1 — Research, Verification and Project Plan
 
 **Date:** 2026-11-14
-**Status:** data sources verified with live requests; plan fixed.
+**Status:** implementation complete for the consolidated 2025 duration study; final notebook execution/output refresh remains the only environment-dependent step.
+
+**Precedence:** the original notebooks 01–03 and their supporting `src/` pipeline take precedence over later
+summaries. A final one-notebook workflow may reuse or simplify presentation, but it must not change the cleaning,
+chronological split, feature contract or leakage rules that were implemented by the original pipeline.
 
 ---
 
@@ -77,11 +81,14 @@ Decision: federal holidays drive the `is_holiday` flag; NY state days are also c
 
 | Split | Months | Purpose |
 |---|---|---|
-| Train | 2025-01 … 2025-08 | Fit models and every learned transformer |
+| Train | 2025-01 … 2025-08 | Fit models and every learned transformer; January is retained and used as history cold-start data |
 | Validation | 2025-09 … 2025-10 | Model/hyper-parameter selection only |
 | Test | 2025-11 … 2025-12 | Touched once, at the end, per model family |
 
-Rationale: 8 months of training covers winter, spring, summer and early autumn demand and two daylight-saving transitions; validation is long enough for a stable ranking (≈8 M yellow rows) without consuming the holiday-heavy end of year; November–December is a genuinely unseen regime (Thanksgiving, holiday shopping, cold weather) — a harder but realistic test. Recorded risk: if test metrics are materially worse than validation, that is a finding about seasonal generalisation, not a bug, and will be reported as such.
+Rationale: January–August covers winter, spring, summer and early autumn demand, while validation and test remain
+chronologically separated. Route history uses only earlier months and January is retained for training. November–
+December is the unseen seasonal regime (Thanksgiving, holiday shopping and cold weather). If test metrics are
+materially worse than validation, this is reported as temporal generalisation rather than hidden in a re-tune.
 
 ---
 
@@ -91,12 +98,12 @@ Rationale: 8 months of training covers winter, spring, summer and early autumn d
 
 | Group | Features |
 |---|---|
-| Temporal | `pickup_hour`, `pickup_hour_frac`, sin/cos hour, sin/cos weekday, `day_of_month`, `month`, `week_of_year`, `day_of_week`, `is_weekend`, `is_rush_hour` (07–10, 16–19), `is_night` (22–06), `time_of_day_bucket`, `is_holiday`, `is_ny_state_holiday`, `days_to_nearest_holiday` |
+| Temporal | `pickup_hour`, `pickup_hour_frac`, sin/cos hour, sin/cos weekday, `day_of_month`, `month`, `week_of_year`, `day_of_week`, `is_weekend`, `is_rush_hour`, `is_night`, `time_of_day_bucket`, `is_holiday`, `is_ny_state_holiday`, `days_to_nearest_holiday` |
 | Zone | `PULocationID`, `DOLocationID` (categorical), PU/DO borough, same-borough flag, `pu_service_zone` |
 | Geometry | `haversine_km`, `manhattan_grid_km` (L1 on lat/lon projected to local metric), `bearing_deg` (+ sin/cos), `centroid_distance` ratio vs. borough pair median |
 | Flags | `is_airport_pu`, `is_airport_do`, `is_cbd_pu`, `is_cbd_do`, `cross_borough` |
 | Weather (pickup hour) | `temperature_c`, `precipitation_mm`, `snowfall_cm`, `windspeed_kmh`, `is_precipitating` |
-| Historical (leakage-safe) | `route_median_duration` (PU→DO, expanding window), `route_trip_count`, `pu_zone_median_duration`, `pu_zone_hour_median_duration`, `global_median_duration_upto` |
+| Historical (leakage-safe) | Count-weighted expanding means for PU→DO route, pickup zone, pickup-zone-hour, borough-pair and fleet/global fallback; accompanying prior-trip counts |
 | Other | `taxi_type`, `passenger_count` |
 
 ### 4.2 Stage 2 — fare, pre-trip + Stage-1 output
@@ -106,6 +113,10 @@ Everything above (except the target-derived history, which is recomputed for far
 - `pred_duration_min` — Stage-1 out-of-fold prediction (production input);
 - `route_median_fare`, `pu_zone_median_fare` — expanding-window historical fare aggregates;
 - `estimated_distance_km` from geometry (never TLC `trip_distance`).
+
+The fare stage remains part of the original project roadmap and supporting artefacts, but it is outside the
+consolidated graded duration-only notebook unless the course deliverable is later expanded. If it is included,
+fare target cleaning and fare-history construction must follow the same chronological and cross-fit rules.
 
 ### 4.3 Excluded everywhere (post-trip or leaky)
 
@@ -125,7 +136,7 @@ Everything above (except the target-derived history, which is recomputed for far
 
 ## 5. Leakage-control mechanism for historical aggregates
 
-Route and zone aggregates are computed with a **cumulative, month-ordered** procedure: for every row in month *m*, the aggregate uses months 1…*m*−1 only. The first month therefore has no route history and falls back to zone → borough → global medians, which is exactly the cold-start behaviour the app will show for an unseen route. Implementation is a DuckDB self-join on `month` with `SUM(...) OVER (ORDER BY month ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING)` over a pre-aggregated zone/month table — cheap at 46 M rows because the aggregate table is small.
+Route and zone aggregates are computed with a **cumulative, month-ordered** procedure: for every row in month *m*, the aggregate uses months 1…*m*−1 only. The first month therefore has no route history and falls back to pickup-zone, borough-pair and global history. The consolidated fairness comparison pools route history across Yellow and Green so `taxi_type` is not encoded indirectly in C2.
 
 For Stage 1 → Stage 2, predictions come from a 5-fold **time-series cross-fit** on training months; the final Stage-1 model is then refit on all training months.
 
@@ -133,11 +144,11 @@ For Stage 1 → Stage 2, predictions come from a 5-fold **time-series cross-fit*
 
 ## 6. Modelling plan (≥7 algorithm families)
 
-**Duration:** median baseline → Linear Regression → Ridge → Decision Tree → Random Forest → LightGBM → XGBoost → HistGradientBoosting. Tune LightGBM/XGBoost on validation (random/coarse grid, early stopping), then refit on train+val for the final test evaluation of the selected model only.
+**Duration:** overall median → route median/route mean → Linear Regression → Decision Tree → Random Forest → HistGradientBoosting → LightGBM → XGBoost → FAISS KNN. Select the model on validation only, then fit it once on train+validation and touch the test window once.
 
 **Fare:** linear baseline → Random Forest → LightGBM → XGBoost, all fed the Stage-1 predicted duration; plus a diagnostic-only variant using actual duration to bound achievable performance.
 
-**Sampling:** Yellow training rows sampled by hash to 3 M for tuning and 6 M for the final fit if runtime demands; Green fully retained (≈0.58 M). Every table records sample sizes and seed. Test evaluation uses the full two-month holdout for the final numbers where feasible, else a 1 M hash sample.
+**Sampling:** fixed-seed DuckDB/Pandas samples with all Green rows retained. Every result table records sample sizes and seed. Test evaluation is performed once on the test sample or the full holdout depending on runtime and memory.
 
 ---
 
@@ -147,8 +158,9 @@ For Stage 1 → Stage 2, predictions come from a 5-fold **time-series cross-fit*
 notebooks/01_data_audit_and_understanding.ipynb
 notebooks/02_exploratory_data_analysis.ipynb
 notebooks/03_data_preprocessing_and_feature_engineering.ipynb
-notebooks/04_duration_prediction.ipynb
-notebooks/05_fare_prediction.ipynb
+notebooks/nyc_taxi_trip_duration.ipynb       final consolidated duration project
+notebooks/04_duration_prediction.ipynb       optional split-out implementation
+notebooks/05_fare_prediction.ipynb           future original fare-stage implementation
 notebooks/06_model_evaluation_and_explainability.ipynb
 notebooks/07_end_to_end_pipeline.ipynb
 src/ingestion/   download_tlc.py (manifest, resume, validate), download_external.py (weather, zones, holidays)
@@ -165,6 +177,27 @@ tests/           ingestion, feature contract, serving smoke tests
 `README.md`: may be updated now that permission is granted, but `assets/hero.svg` stays embedded and both SVG files stay untouched.
 
 ---
+
+## 7A. Implementation status and completion criteria
+
+| Area | Status |
+|---|---|
+| Raw 2025 ingestion | Implemented; 24 monthly TLC files plus zone data are local |
+| External data | Implemented; Central Park hourly weather, holidays and zone centroids are local |
+| Cleaning audit | Implemented; duration, source-month, zone, negative-distance, fare and duplicate rules are defined |
+| Temporal/geospatial features | Implemented in the original feature pipeline and consolidated notebook |
+| Passenger and weather features | Retained by your original implementation; passenger missingness is explicitly handled |
+| Leakage-safe route history | Implemented; pooled across fleets for the C1/C2 fairness comparison |
+| Chronological split | Implemented: Jan–Aug train, Sep–Oct validation, Nov–Dec test |
+| Baselines and duration models | Implemented in the consolidated notebook |
+| Taxi-type research question | Implemented C1/C2 plus A/B/D/E experiments |
+| Error analysis | Residual, borough, hour, length-bucket and permutation-importance code implemented |
+| Responsible-use and conclusions | Implemented and tied to outputs rather than placeholders |
+| End-to-end notebook execution | Pending; must be rerun after feature-contract precedence changes |
+
+Before submission, the notebook must satisfy a restart-and-run-all check with no remaining TODO or placeholder
+text. The outputs of Sections 7–10 must be re-generated from the final feature table, and every model table and
+observation must be checked against the printed values. The test set must be touched only by the final test cell.
 
 ## 8. Risks and mitigations
 

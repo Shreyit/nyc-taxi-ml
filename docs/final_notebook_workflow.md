@@ -25,7 +25,7 @@ maps to a report section.
 | 4 | EDA | 3 | duration distribution, hour/weekday, boroughs, distance, Yellow vs Green |
 | 5 | Features | 4 | time features, zone/borough, airport flags, centroid distance, route history from earlier months |
 | 6 | Train / validation / test + sampling | 4 | split table, sample sizes |
-| 7 | Baseline and models | 5 | median baselines, Linear Regression, KNN (FAISS), Decision Tree, Random Forest, HistGradientBoosting, XGBoost, LightGBM, CatBoost (optional), TabPFN on 10k rows (optional) |
+| 7 | Baseline and models | 5 | median baselines, Linear Regression, KNN (FAISS), Decision Tree, Random Forest, HistGradientBoosting, XGBoost, LightGBM |
 | 8 | Evaluation on validation, then test | 6 | MAE, RMSE, R², Median AE table |
 | 9 | Research question: with vs without `taxi_type` | 6, 7 | C1 vs C2, errors per fleet, cross-fleet D/E |
 | 10 | Errors and interpretation | 7 | residuals, error by borough / hour, feature importance |
@@ -36,11 +36,11 @@ maps to a report section.
 
 | Earlier | Problem | Final notebook |
 |---|---|---|
-| Fare `<= 0` rows dropped (2.76 M) | Only needed for a fare target. Those trips have normal durations (median 15.3 min). | Keep them; duration is the only target. |
+| Fare `<= 0` rows removed by the original cleaning contract | The original two-target pipeline requires a usable duration and fare target. | Preserve the original cleaning rule for the final table; documentation must not silently keep fare-invalid rows. |
 | Route history partitioned by `taxi_type` | The "without taxi_type" model would still learn the fleet through the history feature, so the C1 vs C2 comparison is unfair. | Route history pooled across fleets. |
-| `month`, `week_of_year` as features | Test months (Nov–Dec) never appear in training; trees cannot extrapolate. | Dropped. The trend is carried by the route history from earlier months. |
-| `passenger_count` as a feature | ~21% missing in Yellow; the audit itself called it unreliable. | Dropped. |
-| Weather features | External download, effect ≈ 0.2–0.3 min in the EDA. | Dropped; mentioned as a limitation. |
+| `month`, `week_of_year` as features | Present in the original feature contract and implemented in the consolidated pipeline. | Retained; route history also carries temporal trend. |
+| `passenger_count` as a feature | Present in the original pipeline with substantial missingness. | Retained with train-median imputation for model matrices and reported as an uncertainty. |
+| Weather features | Present in the original external-data and feature pipeline. | Retained through pickup-hour joins; discussed as city-level rather than route-level. |
 | "R² above 0.30 means leakage" (docs/decisions.md D-04) | The route prior alone correlates 0.84 with duration (R² ≈ 0.7). | Leakage checked with explicit tests, not an R² threshold. |
 | Wrong numbers in text (removed 10.7%/7.6%, etc.) | Text written separately from outputs. | Every observation is written after running the cell, from the printed numbers. |
 | Notebooks depend on `src/` outputs and a weather file | Not reproducible from a fresh clone. | Notebook builds everything from `data/raw` itself. |
@@ -61,4 +61,3 @@ maps to a report section.
 4. Sections 7–9 (models, evaluation, research question).
 5. Sections 10–12 (errors, responsible use, conclusion).
 6. Restart and Run All; check the whole notebook runs end to end.
-7. Move notebooks 01–03 to `notebooks/archive/`.

@@ -1,189 +1,95 @@
-<div align="center">
+# NYC Taxi Trip Duration Prediction
 
-<img src="assets/hero.svg" alt="Animated yellow and green NYC taxis driving past a night skyline, titled NYC Taxi Trip Duration" width="100%"/>
+Machine-learning project for predicting 2025 NYC Yellow and Green taxi trip duration from
+information available before pickup.
 
-<br/>
+**Final graded deliverable:** [notebooks/nyc_taxi_trip_duration.ipynb](notebooks/nyc_taxi_trip_duration.ipynb)
 
-<img alt="Python" src="https://img.shields.io/badge/Python-3.14+-3776AB?style=for-the-badge&logo=python&logoColor=white"/>
-<img alt="uv" src="https://img.shields.io/badge/uv-managed-DE5FE9?style=for-the-badge&logo=uv&logoColor=white"/>
-<img alt="DuckDB" src="https://img.shields.io/badge/DuckDB-%2B%20Parquet-FFF000?style=for-the-badge&logo=duckdb&logoColor=black"/>
-<img alt="LightGBM" src="https://img.shields.io/badge/LightGBM-%2B%20XGBoost-9ACD32?style=for-the-badge&logo=lightgbm&logoColor=white"/>
-<img alt="Streamlit" src="https://img.shields.io/badge/Streamlit-app-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white"/>
+The implementation is anchored in the original audit, EDA and feature-engineering notebooks:
 
-**How long will this ride take, and what will it cost?**
-A two-stage machine learning pipeline over the full **2025** NYC TLC trip records:
-predict trip duration from what is known when the taxi is hailed, then predict the
-fare using that predicted duration.
+- [01_data_audit_and_understanding.ipynb](notebooks/01_data_audit_and_understanding.ipynb)
+- [02_exploratory_data_analysis.ipynb](notebooks/02_exploratory_data_analysis.ipynb)
+- [03_data_preprocessing_and_feature_engineering.ipynb](notebooks/03_data_preprocessing_and_feature_engineering.ipynb)
 
-[Status](#status) · [Pipeline](#pipeline) · [Data](#data) · [No peeking](#no-peeking-at-the-future) · [Quickstart](#quickstart)
+## Project scope
 
-</div>
-
----
-
-## What the project predicts
-
-| Stage | Target | Inputs | Output |
-|:--:|---|---|---|
-| **1** | `duration_min` | pickup time, pickup and drop-off zone, taxi type, geometry, weather, holiday flags, leakage-safe route history | minutes |
-| **2** | `fare_amount` | everything in stage 1 **plus the stage-1 duration prediction** and historical fare aggregates | USD |
-
-The application will return the predicted duration, the predicted fare, the estimated arrival time and a
-prediction interval, using only information available **before** the trip starts.
-
-## Status
-
-| Phase | Deliverable | State |
-|:--:|---|---|
-| 0 | Repository audit, decisions, progress log (`docs/`) | complete |
-| 1 | Source verification, feature contract, split plan | complete |
-| 2 | 2025 ingestion, cleaning, geospatial/weather integration, audit notebook, tests | complete |
-| 3 | Exploratory data analysis (notebook `02`) | complete |
-| 4 | Feature engineering + leakage-safe history (notebook `03`) | complete |
-| 5 | Duration and fare models (notebooks `04`, `05`) | next |
-| 6 | Evaluation, SHAP explainability (notebook `06`) | pending |
-| 7 | End-to-end demo, Streamlit app (notebook `07`, `app/`) | pending |
-
-## Pipeline
-
-<img src="assets/pipeline.svg" alt="Pipeline: raw TLC data for 2025, then data audit and EDA, then preprocessing and feature engineering, then two parallel models for duration and fare, then evaluation and explainability, ending in an integrated prediction pipeline" width="100%"/>
-
-External inputs — the TLC zone lookup and shapefile, hourly weather, and the holiday calendar — enter
-at step 03, together with the leakage-safe route history built from earlier months only.
+- Data: full-year 2025 NYC TLC Yellow and Green trip records
+- Target: `duration_min = dropoff_datetime - pickup_datetime`
+- Split: Jan-Aug train, Sep-Oct validation, Nov-Dec test
+- Research question: do calendar, geography, weather, route history and taxi type predict trip duration?
+- Evaluation: MAE, RMSE, R² and median absolute error
+- Validation: model selection only on Sep-Oct
+- Test: Nov-Dec touched once for the final selected model
 
 ## Data
 
-Official [TLC Trip Record Data](https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page) for
-calendar year **2025**, Yellow and Green taxis:
-
-| | Yellow | Green | Total |
-|---|---:|---:|---:|
-| Raw rows (Jan–Dec 2025) | 48,722,602 | 591,375 | 49,313,977 |
-| Used for modelling | 44,511,782 (91.4%) | 559,224 (94.6%) | 45,071,006 |
-
-Plus the TLC zone lookup and shapefile, hourly weather for Central Park from the Open-Meteo
-archive, and the 2025 US federal and New York State holiday calendars. Standard FHV records are
-excluded because they lack the pickup/drop-off and fare fields this task needs.
-
-Every monthly file is downloaded by a restartable script that validates the Parquet footer, records a
-SHA-256 and row count in `data/raw/manifest_2025.json`, and skips files that are already valid.
-Nothing is assumed about availability: all 24 files were verified live before the pipeline was written.
-
-## Two very different fleets
-
-<img src="assets/imbalance.svg" alt="Bar chart: 44,511,782 Yellow trips vs 559,224 Green trips, about 80 to 1" width="100%"/>
-
-Yellow outnumbers Green by roughly **80 to 1** and concentrates in Manhattan and at the airports.
-Green cabs (Boro Taxis) cannot take street hails in most of Manhattan and mostly serve the outer
-boroughs, which is why every result in this project is reported per taxi type rather than pooled.
-
-## No peeking at the future
-
-| Allowed before the trip | Excluded (only known after it) |
-|---|---|
-| Pickup hour, day, month, weekend, rush hour, holiday | Drop-off timestamp, actual duration |
-| Pickup & drop-off zone, borough, zone centroids | Metered `trip_distance` |
-| Haversine and grid distance from zone geometry | `fare_amount`, `tip_amount`, `total_amount` |
-| Weather at the pickup hour, taxi type | Tolls, surcharges, `congestion_surcharge`, `cbd_congestion_fee` |
-| Route/zone history built from **earlier months only** | `RatecodeID`, `payment_type`, `store_and_fwd_flag` |
-
-Two consequences worth stating plainly: expected duration accuracy is modest, because the model
-never sees the route actually driven; and fare predictions must combine a metered fare estimate with
-history, because tips and tolls are unknowable in advance.
-
-## Repository layout
-
-```text
-nyc-taxi-ml/
-├── assets/                   README graphics (protected)
-├── data/
-│   ├── raw/                  monthly TLC Parquet + manifest + zone lookup (git-ignored)
-│   ├── external/             weather, holidays, zone centroids, shapefile
-│   └── processed/            cleaned dataset, feature table, cleaning audit
-├── notebooks/                01 audit · 02 EDA · 03 features · 04 duration
-│                             05 fare · 06 evaluation · 07 end-to-end
-├── src/
-│   ├── ingestion/            download_tlc.py, download_external.py
-│   ├── preprocessing/        build_clean_dataset.py
-│   ├── features/             build_features.py
-│   ├── models/               (planned) training for stages 1 and 2
-│   ├── evaluation/           (planned) metrics and reports
-│   └── serving/              (planned) shared inference path for the app
-├── app/                      (planned) Streamlit application
-├── tests/                    integration checks over the built artefacts
-├── tools/                    reproducible notebook builders
-├── docs/                     audit, plan, decisions, progress log, data dictionary
-└── reports/                  (planned) figures and metrics tables
-```
-
-## Quickstart
-
-Requires [uv](https://docs.astral.sh/uv/). The raw data (~860 MB) is **not in Git**; each of us
-downloads it once from the TLC website.
+The raw data contains 24 monthly TLC Parquet files and the NYC taxi-zone lookup and shapefile.
+Raw data, external data and generated Parquet artefacts are not committed to Git.
 
 ```bash
-git clone https://github.com/Shreyit/nyc-taxi-ml.git
-cd nyc-taxi-ml
-uv sync                                # creates .venv with all dependencies
-uv run python scripts/get_data.py      # downloads the 24 monthly files + zone files into data/raw/
+uv sync
+uv run python scripts/get_data.py
 ```
 
-After the download, `data/raw/` should look like this:
+The download script is restartable and skips valid files that are already present.
 
-```text
-data/raw/
-├── yellow/yellow_tripdata_2025-01.parquet … 2025-12.parquet   (12 files, ~840 MB)
-├── green/green_tripdata_2025-01.parquet  … 2025-12.parquet    (12 files, ~19 MB)
-├── taxi_zone_lookup.csv
-└── taxi_zones.zip
-```
+## Reproduce the final notebook
 
-Then open **`notebooks/nyc_taxi_trip_duration.ipynb`** in VS Code or Jupyter, select the `.venv (3.15.1)`
-kernel and run all cells. The notebook builds `data/processed/` itself; no other manual step is needed.
-Re-running `get_data.py` skips files that are already there.
+1. Run `uv sync`.
+2. Download the raw data with `uv run python scripts/get_data.py`.
+3. Open `notebooks/nyc_taxi_trip_duration.ipynb`.
+4. Select the `nyc-taxi-ml (3.15.1)` kernel.
+5. Run **Restart and Run All**.
 
-> `data/` and `*.parquet` are in `.gitignore`, so the data can never be committed by accident.
+The notebook builds cleaned and feature tables directly from `data/raw` and writes figures to
+`outputs/figures/`.
 
-<details>
-<summary><b>Older pipeline (scripts used by notebooks 01–03)</b></summary>
+## Pipeline
 
-```bash
-# 1. download and validate the 24 monthly files, zone data, weather and holidays
-uv run python -m src.ingestion.download_tlc
-uv run python -m src.ingestion.download_external
+1. Normalize Yellow and Green schemas.
+2. Audit missing values, invalid durations, zones, duplicates and target fields.
+3. Apply the original cleaning rules.
+4. Add zone centroids, straight-line/grid geometry, airport and borough flags.
+5. Add temporal, holiday and hourly weather features.
+6. Build expanding prior-month route and zone history.
+7. Use passenger count with median imputation and preserve its missingness in the audit.
+8. Compare medians, route baselines, linear regression, decision trees, random forest,
+   HistGradientBoosting, LightGBM, XGBoost and FAISS KNN.
+9. Evaluate with-vs-without taxi type and cross-fleet experiments.
+10. Report residuals, borough/hour/length errors and permutation importance.
 
-# 2. build the cleaned dataset and the feature table (DuckDB, ~7 minutes)
-uv run python -m src.preprocessing.build_clean_dataset
-uv run python -m src.features.build_features
+## Leakage controls
 
-# 3. checks
-uv run pytest -q
-```
-
-</details>
+- `duration_min`, `fare_amount`, `trip_distance`, tolls, tips, drop-off timestamp and payment fields
+  are not used as duration predictors.
+- Route history uses only strictly earlier months.
+- January is included in training and represents the cold-start history month.
+- Month and week-of-year remain available as original calendar features.
+- Passenger count is not used to delete rows; missing values are imputed only for model matrices.
+- Weather is joined on pickup hour and is city-level, not route-level.
+- The test window is not used for model or feature selection.
 
 ## Documentation
 
-| File | Contents |
+| Document | Purpose |
 |---|---|
-| [`docs/project_audit.md`](docs/project_audit.md) | What existed before this cycle, and what was reused, refactored or replaced |
-| [`docs/project_plan.md`](docs/project_plan.md) | Source verification, split, feature contract, modelling plan, risks |
-| [`docs/decisions.md`](docs/decisions.md) | Technical decision records, including rejected alternatives |
-| [`docs/data_dictionary.md`](docs/data_dictionary.md) | Every column of every table, raw and processed |
-| [`docs/progress_log.md`](docs/progress_log.md) | What was run, and what was actually verified |
+| [Project plan](docs/project_plan.md) | Scope, split, feature contract, models and completion criteria |
+| [Final workflow](docs/final_notebook_workflow.md) | One-notebook structure and implementation decisions |
+| [Decisions](docs/decisions.md) | Technical decision records |
+| [Data dictionary](docs/data_dictionary.md) | Raw, external and processed fields |
+| [Progress log](docs/progress_log.md) | Executed work and verified outcomes |
+| [Project audit](docs/project_audit.md) | Initial repository and methodology audit |
+
+## Tests
+
+```bash
+uv run pytest -q
+```
+
+Tests are integration checks over the downloaded and processed artefacts.
 
 ## Responsible use
 
-TLC records are public and de-identified, and locations are only given at taxi-zone level. The models
-predict trip duration and fare; they do not explain *why* a trip is slow, so no causal claims are made.
-Errors will be reported by taxi type, borough, airport vs non-airport and rush hour vs off-peak, because
-areas with fewer trips may receive less accurate predictions. These are estimates to support human
-judgement, not a substitute for it.
-
----
-
-<div align="center">
-<sub>Data: <a href="https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page">NYC Taxi &amp; Limousine Commission</a> ·
-Weather: <a href="https://open-meteo.com/">Open-Meteo</a> ·
-Built for <i>Introduction to Machine Learning</i>, School of Analytics, TISS</sub>
-</div>
+This project estimates average trip duration from public, de-identified TLC records. It is not a live
+navigation system and does not contain exact street routing or real-time traffic. Results are reported
+separately for Yellow and Green taxis because the fleets differ substantially in volume and geography.
