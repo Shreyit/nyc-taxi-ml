@@ -1,10 +1,8 @@
-# Data (download with the steps in README.md)
-data/
-*.parquet
-
 # Generated outputs
 outputs/models/
 *.joblib
+data/
+outputs/figures/
 
 # Python / uv
 .venv/
