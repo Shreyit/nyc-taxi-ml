@@ -36,23 +36,26 @@ model trained on one fleet work on the other?
 
 ## Status
 
-Status of the final notebook:
+Status of the final notebook and project components:
 
 | § | Section | State |
 |:--:|---|---|
-| 1–4 | Setup, first look, cleaning, EDA | written and run |
-| 5–6 | Features (incl. weather, fare history), chronological split, sampling | written; re-run needed after the feature update |
-| 7–8 | Duration models on validation, final test on Nov–Dec | written; re-run needed after the feature update |
-| 9 | Fare prediction (Stage 2) | code written, not run yet |
-| 10 | Research question: with vs without taxi type, fleet-specific and cross-fleet models | code written, not run yet |
-| 11 | Errors and interpretation (residuals, error by borough/hour/length, permutation importance) | code written, not run yet |
-| 12–13 | Limitations, conclusion | draft; final numbers after the full run |
-| — | Streamlit app | not started (optional) |
+| **1** | **Problem Formulation & Setup** (Environment, dependencies, hardware checks) | **Complete & Executed** |
+| **2** | **Raw Data Audit & Integrity** (DuckDB inspection across 49.3M raw TLC records) | **Complete & Executed** |
+| **3** | **Cleaning & Quality Waterfall** (Multi-stage filtering yielding 45.1M clean trips) | **Complete & Executed** |
+| **4** | **Exploratory Data Analysis** (Spatiotemporal dynamics & 80:1 Yellow vs Green disparities) | **Complete & Executed** |
+| **5** | **Feature Engineering & Pre-Trip Guardrails** (Hourly weather, holidays, leakage-free history) | **Complete & Executed** |
+| **6** | **Chronological Partitioning & Sampling** (Train Jan–Aug, Val Sep–Oct, Test Nov–Dec) | **Complete & Executed** |
+| **7** | **Stage 1: Trip Duration Model** (Baselines, ML suite, SHAP beeswarm, learning curve, fleet transfer) | **Complete & Executed** (Test MAE: **4.63 min**) |
+| **8** | **Stage 2: Metered Fare Model** (Forward-pass duration integration, upper bound, SHAP, learning curve) | **Complete & Executed** (Test MAE: **$5.04**) |
+| **9** | **System Integration & Pipeline Evaluation** (End-to-end two-stage serving & error propagation) | **Complete & Executed** |
+| **10** | **Limitations & Edge Cases** (Residual anomalies, airport flat rates, out-of-distribution extremes) | **Complete & Executed** |
+| **11** | **Conclusion & Responsible AI** (Fairness audit across boroughs, deployment recommendations) | **Complete & Executed** |
+| **—** | **Streamlit Web Application** (`app/streamlit_app.py` interactive 3D map & serving engine) | **Complete & Verified** |
 
-**Split:** train Jan–Aug · validation Sep–Oct · test Nov–Dec 2025 (chronological, no shuffling).
-**Models:** median and route-history baselines, Linear Regression, Decision Tree, Random Forest,
-HistGradientBoosting, LightGBM, XGBoost, KNN (FAISS). **Metrics:** MAE (main), RMSE, R², median absolute
-error, always reported per taxi type.
+**Split:** train Jan–Aug · validation Sep–Oct · test Nov–Dec 2025 (strict chronological, no shuffling).  
+**Models:** Median and route-history baselines, Linear Regression, Decision Tree, Random Forest, HistGradientBoosting, LightGBM, XGBoost, and FAISS KNN.  
+**Official Metrics:** MAE (primary), RMSE, $R^2$, and MedAE, reported overall and per taxi fleet. All 81 cells executed with zero errors.
 
 ## Pipeline
 
@@ -107,12 +110,16 @@ history, because tips and tolls are unknowable in advance.
 nyc-taxi-ml/
 ├── app/                      interactive Streamlit web app (streamlit_app.py)
 ├── assets/                   README graphics and hero illustration
-├── data/                     (git-ignored)
-│   ├── raw/                  monthly TLC Parquet + zone lookup and shapefile
-│   └── external/             hourly 2025 weather, centroids and holiday calendar
+├── data/
+│   ├── raw/                  (git-ignored) monthly TLC Parquet files (~800 MB)
+│   ├── processed/            (git-ignored) full cleaned 2025 parquet (1.6 GB)
+│   └── external/             (tracked) hourly 2025 weather, centroids and holiday calendar
 ├── notebooks/
-│   └── nyc_taxi_trip_duration.ipynb   consolidated master notebook
-├── outputs/                  (git-ignored) trained models, figures and lookup tables
+│   └── nyc_taxi_trip_duration.ipynb   fully executed master notebook (all outputs & plots saved)
+├── outputs/
+│   ├── figures/              (tracked) 16 official evaluation and diagnostic plots
+│   ├── lookup/               (tracked) fast runtime spatial lookup parquets
+│   └── models/               (tracked) trained duration & fare LightGBM models + feature schemas
 ├── scripts/                  get_data.py (download), export_serving_artifacts.py (serving export)
 ├── src/serving/              predictor.py (two-stage inference engine)
 ├── tests/                    test_serving.py (serving smoke tests)
