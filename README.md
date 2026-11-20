@@ -105,83 +105,53 @@ history, because tips and tolls are unknowable in advance.
 
 ```text
 nyc-taxi-ml/
-├── assets/                   README graphics
+├── app/                      interactive Streamlit web app (streamlit_app.py)
+├── assets/                   README graphics and hero illustration
 ├── data/                     (git-ignored)
 │   ├── raw/                  monthly TLC Parquet + zone lookup and shapefile
-│   ├── external/             hourly 2025 weather
-│   └── processed/            cleaned trips and feature table, built by the notebook
+│   └── external/             hourly 2025 weather, centroids and holiday calendar
 ├── notebooks/
-│   ├── nyc_taxi_trip_duration.ipynb   the final notebook (the whole project)
-│   └── 01–03                          earlier audit, EDA and feature notebooks
-├── scripts/                  get_data.py (download), fix_openmp_mac.sh (macOS fix)
-├── src/                      ingestion and preprocessing scripts used by notebooks 01–03 and the weather download
-├── outputs/figures/          figures saved by the notebook (git-ignored)
-├── tests/                    integration checks for the older pipeline
-├── tools/                    builders for notebooks 01–03
-└── docs/                     audit, plan, decisions, progress log, data dictionary, notebook workflow
+│   └── nyc_taxi_trip_duration.ipynb   consolidated master notebook
+├── outputs/                  (git-ignored) trained models, figures and lookup tables
+├── scripts/                  get_data.py (download), export_serving_artifacts.py (serving export)
+├── src/serving/              predictor.py (two-stage inference engine)
+├── tests/                    test_serving.py (serving smoke tests)
+└── docs/
+    └── PROJECT_DOCUMENTATION.md       exhaustive technical report & architecture documentation
 ```
 
 ## Quickstart
 
-Requires [uv](https://docs.astral.sh/uv/). The raw data (~860 MB) is **not in Git**; each of us
-downloads it once from the TLC website.
+Requires [uv](https://docs.astral.sh/uv/). The raw data (~860 MB) is **not in Git**; download it once:
 
 ```bash
 git clone https://github.com/Shreyit/nyc-taxi-ml.git
 cd nyc-taxi-ml
 uv sync                                # creates .venv with all dependencies
 uv run python scripts/get_data.py      # downloads the 24 monthly files + zone files into data/raw/
-uv run python -m src.ingestion.download_external   # hourly 2025 weather -> data/external/
 ```
 
-On macOS also run `sh scripts/fix_openmp_mac.sh` once (needs `brew install libomp`). faiss and scikit-learn
-ship their own copy of OpenMP, LightGBM/XGBoost use Homebrew's, and several copies in one notebook make the
-models freeze. The script points them all at the same library. Run it again after `uv sync`.
+After the download, run the full pipeline in **`notebooks/nyc_taxi_trip_duration.ipynb`** using the `nyc-taxi-ml (3.15.1)` kernel.
 
-After the download, `data/raw/` should look like this:
+### Running the Web Application
 
-```text
-data/raw/
-├── yellow/yellow_tripdata_2025-01.parquet … 2025-12.parquet   (12 files, ~840 MB)
-├── green/green_tripdata_2025-01.parquet  … 2025-12.parquet    (12 files, ~19 MB)
-├── taxi_zone_lookup.csv
-└── taxi_zones.zip
-```
-
-Then open **`notebooks/nyc_taxi_trip_duration.ipynb`** in VS Code or Jupyter, select the `nyc-taxi-ml (3.15.1)`
-kernel and run all cells. The notebook builds `data/processed/` itself.
-Re-running `get_data.py` skips files that are already there.
-
-> `data/` is in `.gitignore`, so the data is never committed.
-
-<details>
-<summary><b>Older pipeline (scripts used by notebooks 01–03)</b></summary>
+To launch the real-time Streamlit web app:
 
 ```bash
-# 1. download and validate the 24 monthly files, zone data, weather and holidays
-uv run python -m src.ingestion.download_tlc
-uv run python -m src.ingestion.download_external
-
-# 2. build the cleaned dataset and the feature table (DuckDB, ~7 minutes)
-uv run python -m src.preprocessing.build_clean_dataset
-uv run python -m src.features.build_features
-
-# 3. checks
-uv run pytest -q
+uv run streamlit run app/streamlit_app.py
 ```
 
-</details>
+### Running Tests
+
+```bash
+uv run pytest tests/test_serving.py
+```
 
 ## Documentation
 
-| File | Contents |
-|---|---|
-| [`docs/project_audit.md`](docs/project_audit.md) | What existed before this cycle, and what was reused, refactored or replaced |
-| [`docs/project_plan.md`](docs/project_plan.md) | Source verification, split, feature contract, modelling plan, risks |
-| [`docs/decisions.md`](docs/decisions.md) | Technical decision records, including rejected alternatives |
-| [`docs/data_dictionary.md`](docs/data_dictionary.md) | Every column of every table, raw and processed |
-| [`docs/progress_log.md`](docs/progress_log.md) | What was run, and what was actually verified |
-| [`docs/final_notebook_workflow.md`](docs/final_notebook_workflow.md) | Outline of the final notebook and how it maps to the report |
+The complete, exhaustive technical documentation is consolidated in:
+
+* 📄 **[`docs/PROJECT_DOCUMENTATION.md`](docs/PROJECT_DOCUMENTATION.md)**: Comprehensive technical documentation covering problem formulation, data dictionary, cleaning waterfall, leakage controls, two-stage modeling benchmarks, fleet fairness analysis, permutation feature importance, responsible AI, and architecture decisions.
 
 ## Responsible use
 
