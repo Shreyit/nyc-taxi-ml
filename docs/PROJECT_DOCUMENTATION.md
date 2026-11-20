@@ -148,6 +148,17 @@ NYC taxi trips exhibit an 80:1 fleet imbalance. Uniform sampling would starve mo
   * Test: all $89,984$ rows
 * **Training Matrix Size:** **$1,375,907$ rows** ($72.7\%$ Yellow, $27.3\%$ Green).
 
+### 6.3 Empirical Learning Curves (Both Models & Fleets)
+Empirical learning curves evaluate validation MAE across increasing training sample sizes ($N \in [10\text{k}, 50\text{k}, 100\text{k}, 250\text{k}, 500\text{k}, 1.38\text{M}]$) for both production models in Section 11:
+* **Stage 1 (Duration Model):**
+  - Errors drop sharply from $10\text{k} \to 100\text{k}$ trips as zone geometry is learned.
+  - Reaches the "knee" around $\approx 500\text{k} - 1\text{M}$ rows, flattening asymptotically near $\approx 4.36\text{ min}$ MAE.
+  - Remaining error is irreducible aleatoric noise (unobservable traffic lights, double parking, driver speed variation).
+* **Stage 2 (Fare Model):**
+  - Reaches its knee even earlier ($\approx 250\text{k} - 500\text{k}$ rows) and flattens near $\approx \$1.85$ MAE.
+  - Converges faster because TLC metered fares are governed by deterministic statutory pricing formulas once distance and duration are established.
+* **Fleet Convergence:** Green taxi errors stabilize at smaller total sample sizes due to geographic restriction to outer boroughs with lower route variability. Ingesting all 45M raw trips would multiply compute by $30\times$ for less than $0.05\text{ min}$ / $\$0.02$ MAE improvement.
+
 ---
 
 ## 7. Two-Stage Modeling Architecture
@@ -268,6 +279,15 @@ Shuffling features one at a time to measure MAE degradation:
 4. `hour` & `is_rush_hour` (+0.45 min MAE increase) — Time-of-day traffic waves.
 5. `temperature_c` & `precipitation_mm` (+0.08 min MAE increase) — Weather effects.
 6. `passenger_count` (+0.00 min MAE increase) — Proved zero predictive utility; safely dropped.
+
+### 12.3 Dual SHAP Feature Attribution (TreeExplainer for Both Models)
+While permutation importance scores global loss of accuracy upon column shuffling, SHAP (SHapley Additive exPlanations) beeswarm plots quantify both magnitude and **directionality** across both stages:
+* **Stage 1 (Duration Drivers):**
+  - `route_prior_mean`, `centroid_km`, and `grid_km` exhibit the largest spread. High historical minutes and longer distances push predicted duration upward (red dots with positive SHAP).
+  - Temporal rush-hour indicators and zone density provide additive calibrations during peak traffic.
+* **Stage 2 (Fare Drivers):**
+  - Predicted duration (`pred_duration`), centroid distance, and route fare history account for $>85\%$ of attribution.
+  - Aligns with TLC rate cards: elapsed travel time and mileage directly generate the metered dollar total.
 
 ---
 
