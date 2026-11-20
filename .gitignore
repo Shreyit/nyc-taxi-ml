@@ -1,22 +1,22 @@
-# Generated outputs
-outputs/models/
-*.joblib
-data/
-outputs/figures/
+# Heavy data files (multi-GB parquet files exceeding GitHub 100MB per-file limit)
+data/raw/
+data/processed/
 
 # Python / uv
 .venv/
 __pycache__/
 *.pyc
+*.pyo
 
 # Jupyter
 .ipynb_checkpoints/
+*/.ipynb_checkpoints/
 
 # OS / editor
 .DS_Store
 .vscode/
 
-# Run logs
+# Run logs & test cache
 logs/
 .pytest_cache/
 *.log
