@@ -1,6 +1,5 @@
 # NYC Taxi Trip Duration & Fare Prediction — Exhaustive Technical Documentation
 
-**Author:** SMLS, Tata Institute of Social Sciences (TISS)  
 **Task:** Regression (Trip Duration & Metered Fare Prediction)  
 **Dataset:** NYC TLC Yellow & Green Trip Records, Calendar Year 2025 (49,313,977 raw rows)  
 **Core Implementation:** Single Self-Contained Notebook (`notebooks/nyc_taxi_trip_duration.ipynb`) & Streamlit Web App (`app/streamlit_app.py`)  
