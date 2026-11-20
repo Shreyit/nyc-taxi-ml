@@ -59,6 +59,7 @@ maps to a report section.
 1. Sections 0–3 (setup, first look, cleaning) — run and check numbers.
 2. Section 4 (EDA).
 3. Sections 5–6 (features, split, leakage tests).
-4. Sections 7–9 (models, evaluation, research question).
-5. Sections 10–12 (errors, responsible use, conclusion).
+4. Sections 7–8 (models, duration evaluation on validation and test).
+5. Section 9 (fare prediction, Stage 2).
+6. Sections 10–13 (research question, errors, responsible use, conclusion).
 6. Restart and Run All; check the whole notebook runs end to end.
