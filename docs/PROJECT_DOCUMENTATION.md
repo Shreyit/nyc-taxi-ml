@@ -34,7 +34,7 @@ This study implements a leak-free, production-grade, two-stage machine learning 
 1. **Stage 1 (Duration):** Predicts total trip duration in minutes using strictly pre-trip variables (pickup time, origin zone, destination zone, zone centroid geometry, historical route traffic, and city-level hourly weather).
 2. **Stage 2 (Fare):** Predicts metered fare amount in USD using pre-trip features augmented by the **predicted** duration from Stage 1 (never the actual post-trip duration).
 
-The best performing model—**LightGBM Regressor**—achieves a Mean Absolute Error (MAE) of **4.36 minutes** ($R^2 = 0.74$) on validation and **4.62 minutes** ($R^2 = 0.76$) on the untouched November–December test holdout. The downstream fare model achieves an MAE of **$4.99** on the test holdout.
+The best performing model—**LightGBM Regressor**—achieves a Mean Absolute Error (MAE) of **4.37 minutes** ($R^2 = 0.74$) on validation and **4.63 minutes** ($R^2 = 0.76$) on the untouched November–December test holdout. The downstream fare model achieves an MAE of **$5.04** on the test holdout.
 
 ---
 
@@ -155,7 +155,7 @@ Empirical learning curves evaluate validation MAE across increasing training sam
   - Reaches the "knee" around $\approx 500\text{k} - 1\text{M}$ rows, flattening asymptotically near $\approx 4.36\text{ min}$ MAE.
   - Remaining error is irreducible aleatoric noise (unobservable traffic lights, double parking, driver speed variation).
 * **Stage 2 (Fare Model):**
-  - Reaches its knee even earlier ($\approx 250\text{k} - 500\text{k}$ rows) and flattens near $\approx \$1.85$ MAE.
+  - Reaches its knee even earlier ($\approx 250\text{k} - 500\text{k}$ rows) and flattens near $\approx \$3.93$ MAE on validation ($\approx \$5.04$ on the seasonally slower Nov–Dec test holdout).
   - Converges faster because TLC metered fares are governed by deterministic statutory pricing formulas once distance and duration are established.
 * **Fleet Convergence:** Green taxi errors stabilize at smaller total sample sizes due to geographic restriction to outer boroughs with lower route variability. Ingesting all 45M raw trips would multiply compute by $30\times$ for less than $0.05\text{ min}$ / $\$0.02$ MAE improvement.
 
@@ -185,17 +185,18 @@ Evaluated on the September–October validation split ($N = 350,562$ trips).
 | Model Family | Sample Rows | Train Sec | Overall MAE (min) | RMSE (min) | $R^2$ | MedAE (min) | Yellow MAE | Green MAE |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | **Baseline: Overall Median** | $1,375,907$ | 0.0 s | 9.46 | 15.31 | -0.14 | 5.90 | 9.83 | 8.48 |
+| **Baseline: Overall Median** | $1,375,907$ | 0.0 s | 7.36 | 10.74 | 0.43 | 5.56 | 7.53 | 6.89 |
 | **Baseline: Route Median** | $1,375,907$ | 0.0 s | 5.39 | 9.48 | 0.56 | 3.12 | 5.55 | 4.96 |
-| **Baseline: Route History Mean** | $1,375,907$ | 0.0 s | 5.07 | 8.30 | 0.67 | 3.22 | 5.18 | 4.77 |
-| **KNN (FAISS FlatL2, $k=25$)** | $300,000$ | 44.9 s | 5.14 | 8.21 | 0.67 | 3.36 | 5.18 | 5.02 |
-| **Linear Regression (StandardScaler)** | $1,375,907$ | 4.3 s | 5.03 | 8.10 | 0.68 | 3.26 | 5.13 | 4.75 |
-| **Decision Tree (depth=10)** | $1,375,907$ | 11.4 s | 4.50 | 7.40 | 0.73 | 2.94 | 4.52 | 4.44 |
-| **Random Forest (100 trees, depth=20)** | $300,000$ | 58.4 s | 4.41 | 7.33 | 0.74 | 2.83 | 4.45 | 4.30 |
-| **XGBoost (depth=8, lr=0.1)** | $1,375,907$ | 18.8 s | 4.38 | 7.28 | 0.74 | 2.76 | 4.43 | 4.24 |
-| **HistGradientBoosting** | $1,375,907$ | 79.3 s | **4.36** | 7.28 | **0.74** | **2.75** | **4.41** | **4.22** |
-| **LightGBM (500 trees, leaves=127)** | $1,375,907$ | **19.6 s** | **4.36** | **7.27** | **0.74** | **2.75** | 4.42 | **4.22** |
+| **Baseline: Route History Mean** | $1,375,907$ | 0.0 s | 4.96 | 8.23 | 0.67 | 3.16 | 5.12 | 4.51 |
+| **Linear Regression (StandardScaler)** | $1,375,907$ | 4.3 s | 4.84 | 7.84 | 0.70 | 3.28 | 4.94 | 4.57 |
+| **KNN (FAISS FlatL2, $k=25$)** | $300,000$ | 60.3 s | 4.61 | 7.56 | 0.72 | 2.98 | 4.69 | 4.38 |
+| **Decision Tree (depth=10)** | $1,375,907$ | 11.4 s | 4.54 | 7.51 | 0.72 | 2.87 | 4.60 | 4.37 |
+| **Random Forest (100 trees, depth=20)** | $300,000$ | 58.4 s | 4.42 | 7.37 | 0.73 | 2.76 | 4.47 | 4.28 |
+| **XGBoost (depth=8, lr=0.1)** | $1,375,907$ | 23.6 s | 4.38 | 7.25 | 0.74 | 2.76 | 4.43 | 4.23 |
+| **LightGBM (500 trees, leaves=127)** | $1,375,907$ | **19.6 s** | **4.37** | **7.28** | **0.74** | **2.74** | **4.42** | **4.22** |
+| **HistGradientBoosting** | $1,375,907$ | 79.3 s | **4.36** | 7.27 | **0.74** | **2.74** | **4.41** | **4.22** |
 
-* **Selection Decision:** **LightGBM** was selected as the champion model. It matches HistGradientBoosting in MAE, achieves the lowest RMSE (7.27 min), and fits in under 20 seconds.
+* **Selection Decision:** **LightGBM** was selected as the champion model. It matches HistGradientBoosting in accuracy (4.37 vs 4.36 min MAE) while training $4\times$ faster (19.6s vs 79.3s) and offering direct C++ serialization for production serving.
 
 ---
 
@@ -205,14 +206,14 @@ The selected LightGBM model was refit on combined **Train + Validation (Jan–Oc
 
 | Model / Baseline | Fleet Group | Test MAE (min) | Test RMSE (min) | Test $R^2$ | Test MedAE (min) |
 |---|---|---:|---:|---:|---:|
-| **Final LightGBM Model** | **All Trips** | **4.62** | **7.22** | **0.76** | **3.19** |
-| | Yellow Only | 4.71 | 7.11 | 0.77 | 3.30 |
-| | Green Only | 4.37 | 7.51 | 0.70 | 2.92 |
-| **Baseline: Route History Mean** | All Trips | 5.23 | 8.49 | 0.66 | 3.32 |
-| | Yellow Only | 5.41 | 8.52 | 0.67 | 3.46 |
-| | Green Only | 4.72 | 8.39 | 0.63 | 2.94 |
+| **Final LightGBM Model** | **All Trips** | **4.63** | **7.19** | **0.76** | **3.26** |
+| | Yellow Only | 4.72 | 7.08 | 0.77 | 3.38 |
+| | Green Only | 4.39 | 7.50 | 0.70 | 2.96 |
+| **Baseline: Route History Mean** | All Trips | 5.22 | 8.49 | 0.66 | 3.31 |
+| | Yellow Only | 5.37 | 8.52 | 0.67 | 3.44 |
+| | Green Only | 4.81 | 8.42 | 0.63 | 2.94 |
 
-* **Seasonal Generalization Finding:** Test MAE (4.62 min) degrades slightly from validation MAE (4.36 min). This is an expected winter seasonal slowdown in NYC (Nov–Dec traffic is 15% slower city-wide), not overfitting.
+* **Seasonal Generalization Finding:** Test MAE (4.63 min) degrades slightly from validation MAE (4.37 min). This is an expected winter seasonal slowdown in NYC (Nov–Dec traffic is 15% slower city-wide), not overfitting.
 
 ---
 
@@ -221,21 +222,23 @@ The selected LightGBM model was refit on combined **Train + Validation (Jan–Oc
 ### 10.1 Validation Set Comparison ($N = 350,562$)
 | Fare Model | Input Features | MAE ($) | RMSE ($) | $R^2$ |
 |---|---|---:|---:|---:|
-| **Baseline: Overall Median** | None ($14.00) | 9.98 | 16.74 | -0.12 |
-| **Baseline: Route Fare History** | Historical prior fare | 4.34 | 8.24 | 0.73 |
-| **Linear Regression** | Pre-trip + `pred_duration` | 4.58 | 8.46 | 0.71 |
-| **Random Forest** | Pre-trip + `pred_duration` | 4.02 | 7.35 | 0.78 |
-| **XGBoost** | Pre-trip + `pred_duration` | 3.92 | 7.18 | 0.79 |
-| **LightGBM** | Pre-trip + `pred_duration` | **3.88** | **7.10** | **0.80** |
+| **Baseline: Overall Median** | None ($14.00) | 10.00 | 16.79 | -0.12 |
+| **Baseline: Route Fare History** | Historical prior fare | 4.35 | 8.33 | 0.73 |
+| **Linear Regression** | Pre-trip + `pred_duration` | 4.59 | 8.58 | 0.71 |
+| **Random Forest** | Pre-trip + `pred_duration` | 4.03 | 7.50 | 0.78 |
+| **XGBoost** | Pre-trip + `pred_duration` | 3.98 | 7.36 | 0.79 |
+| **LightGBM** | Pre-trip + `pred_duration` | **3.93** | **7.31** | **0.79** |
 
 ### 10.2 Final Test Holdout Evaluation (Nov–Dec 2025)
 * **Deployable LightGBM (Predicted Duration):**
-  * Overall: **MAE = $4.99**, RMSE = $8.56, $R^2 = 0.72$
-  * Yellow Cabs: MAE = $5.09
-  * Green Taxis: MAE = $4.70
+  * Overall: **MAE = $5.04**, RMSE = $8.65, $R^2 = 0.71$
+  * Yellow Cabs: MAE = $5.17, RMSE = $8.56, $R^2 = 0.74$
+  * Green Taxis: MAE = $4.67, RMSE = $8.91, $R^2 = 0.58$
 * **Diagnostic Upper Bound (Actual Post-Trip Duration):**
-  * Overall: **MAE = $3.62**, RMSE = $7.83, $R^2 = 0.76$
-  * **Insight:** Approximately $27\%$ of fare prediction error stems from duration estimation uncertainty.
+  * Overall: **MAE = $3.66**, RMSE = $8.01, $R^2 = 0.75$
+  * Yellow Cabs: MAE = $3.81, RMSE = $8.05, $R^2 = 0.77$
+  * Green Taxis: MAE = $3.24, RMSE = $7.90, $R^2 = 0.67$
+  * **Insight:** Approximately $27\%$ of fare prediction error stems from duration estimation uncertainty ($3.66$ vs $5.04$ USD).
 
 ---
 
@@ -245,16 +248,17 @@ To evaluate whether knowing taxi type improves predictions, four controlled expe
 
 | Experiment Code | Training Data | Model Features | Test Set Evaluated | Yellow MAE (min) | Green MAE (min) |
 |---|---|---|---|---:|---:|
-| **C1** | Pooled (Yellow + Green) | **With** `is_green` | Both fleets | **4.71** | **4.37** |
-| **C2** | Pooled (Yellow + Green) | **Without** `is_green` | Both fleets | 4.71 | 4.46 |
-| **A / B** | Fleet-Specific Only | Without `is_green` | Same fleet only | 4.68 | 4.47 |
-| **D / E** | Opposite Fleet Only | Without `is_green` | Opposite fleet only | 5.82 | 4.79 |
+| **C1** | Pooled (Yellow + Green) | **With** `is_green` | Both fleets | **4.72** | **4.39** |
+| **C2** | Pooled (Yellow + Green) | **Without** `is_green` | Both fleets | 4.74 | 4.47 |
+| **A / B** | Fleet-Specific Only | Without `is_green` | Same fleet only | 4.77 | 4.44 |
+| **D / E** | Opposite Fleet Only | Without `is_green` | Opposite fleet only | 5.64 | 4.94 |
 
 ### Empirical Conclusions
-1. **Taxi Type Adds Modest Value to Green Taxis:** Adding `is_green` leaves Yellow MAE identical (4.71 min) but improves Green MAE from 4.46 to **4.37 min**.
-2. **Cross-Fleet Transfer Fails Asymmetrically (D/E):** 
-   * A Green-trained model applied to Yellow cabs explodes in error to **5.82 min MAE** (+24% error).
-   * A Yellow-trained model applied to Green cabs increases error to **4.79 min MAE** (+10% error).
+1. **Taxi Type Adds Modest Value to Green Taxis:** Adding `is_green` improves Yellow MAE (4.74 $\to$ **4.72 min**) and noticeably improves Green MAE from 4.47 to **4.39 min**.
+2. **Pooling Beats Fleet-Specific Models (C1 vs. A/B):** Training a single unified model on pooled data outperforms training separate models (4.72 vs 4.77 for Yellow; 4.39 vs 4.44 for Green), proving Green cabs benefit from the shared street network volume.
+3. **Cross-Fleet Transfer Fails Asymmetrically (D/E):** 
+   * A Green-trained model applied to Yellow cabs explodes in error to **5.64 min MAE**.
+   * A Yellow-trained model applied to Green cabs increases error to **4.94 min MAE**.
    * **Root Cause:** Yellow cabs operate heavily in dense, high-congestion Manhattan grids, whereas Green taxis operate in outer-borough arterial highways. The spatial and congestion dynamics do not transfer directly.
 
 ---
