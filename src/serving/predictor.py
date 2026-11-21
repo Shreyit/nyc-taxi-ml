@@ -39,6 +39,8 @@ class TaxiPredictor:
         self.zones_by_id = self.zones.set_index("LocationID")
         self.route_history = pd.read_parquet(lookup_dir / "route_history.parquet").set_index(["pu_zone", "do_zone"])
         self.pu_history = pd.read_parquet(lookup_dir / "pu_history.parquet").set_index("pu_zone")
+        weather_file = lookup_dir / "weather_monthly.parquet"
+        self.weather_monthly = pd.read_parquet(weather_file).set_index("month") if weather_file.exists() else None
 
         # NY holidays
         self.ny_holidays = holidays.country_holidays("US", subdiv="NY", years=[2025, 2026, 2027])
@@ -48,8 +50,11 @@ class TaxiPredictor:
         self.zone_name_to_id = dict(zip(self.zones["display_name"], self.zones["LocationID"]))
         self.zone_id_to_name = dict(zip(self.zones["LocationID"], self.zones["display_name"]))
 
-    def prepare_features(self, pu_zone: int, do_zone: int, pickup_dt, is_green: int = 0) -> pd.DataFrame:
+    def prepare_features(self, pu_zone: int, do_zone: int, pickup_dt, is_green: int = 0, weather: str = "dry") -> pd.DataFrame:
         """Construct the exact 1-row feature matrix expected by the duration model."""
+        for zone in (pu_zone, do_zone):
+            if zone not in self.zones_by_id.index:
+                raise ValueError(f"unknown taxi zone id {zone} (valid: 1-263)")
         hour = pickup_dt.hour
         weekday = pickup_dt.isoweekday()
         month = pickup_dt.month
@@ -71,7 +76,7 @@ class TaxiPredictor:
         same_borough = int(pu_row["borough"] == do_row["borough"])
 
         centroid_km = float(np.sqrt((pu_row["x_km"] - do_row["x_km"])**2 + (pu_row["y_km"] - do_row["y_km"])**2))
-        grid_km = float(abs(pu_row["x_km"] - do_row["x_km"]) + abs(pu_row["y_row" if "y_row" in pu_row else "y_km"] - do_row["y_km"]))
+        grid_km = float(abs(pu_row["x_km"] - do_row["x_km"]) + abs(pu_row["y_km"] - do_row["y_km"]))
 
         # Prior lookups
         duration_median = self.medians["duration_median"]
@@ -105,10 +110,20 @@ class TaxiPredictor:
                          7: 26.5, 8: 25.8, 9: 21.6, 10: 15.4, 11: 9.8, 12: 4.5}
         temperature_c = temp_by_month.get(month, 15.0)
         relative_humidity_pct = 60.0
+        windspeed_kmh = 12.0
+        if self.weather_monthly is not None and month in self.weather_monthly.index:   # real 2025 monthly averages
+            w = self.weather_monthly.loc[month]
+            temperature_c = float(w["temperature_c"])
+            relative_humidity_pct = float(w["relative_humidity_pct"])
+            windspeed_kmh = float(w["windspeed_kmh"])
         precipitation_mm = 0.0
         snowfall_cm = 0.0
-        windspeed_kmh = 12.0
         is_precipitating = 0
+        if weather == "rain":
+            relative_humidity_pct, precipitation_mm, is_precipitating = 90.0, 2.0, 1
+        elif weather == "snow":
+            temperature_c = min(temperature_c, -1.0)
+            relative_humidity_pct, precipitation_mm, snowfall_cm, is_precipitating = 85.0, 1.0, 1.0, 1
 
         # Create row
         features_dict = {
@@ -152,10 +167,10 @@ class TaxiPredictor:
         X = X.reindex(columns=self.feature_columns, fill_value=0)
         return X
 
-    def predict(self, pu_zone: int, do_zone: int, pickup_dt, taxi_type: str = "yellow") -> dict:
+    def predict(self, pu_zone: int, do_zone: int, pickup_dt, taxi_type: str = "yellow", weather: str = "dry") -> dict:
         """Run two-stage duration and fare inference."""
         is_green = 1 if taxi_type.lower() == "green" else 0
-        X_dur = self.prepare_features(pu_zone, do_zone, pickup_dt, is_green=is_green)
+        X_dur = self.prepare_features(pu_zone, do_zone, pickup_dt, is_green=is_green, weather=weather)
 
         # Stage 1: Duration
         pred_duration = float(self.duration_model.predict(X_dur)[0])
@@ -195,5 +210,6 @@ class TaxiPredictor:
             "is_airport": is_airport,
             "is_rush_hour": is_rush,
             "cross_borough": cross_borough,
+            "centroid_km": round(float(X_dur["centroid_km"].iloc[0]), 1),
             "taxi_type": taxi_type.lower(),
         }
