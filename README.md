@@ -8,12 +8,14 @@
 <img alt="uv" src="https://img.shields.io/badge/uv-managed-DE5FE9?style=for-the-badge&logo=uv&logoColor=white"/>
 <img alt="DuckDB" src="https://img.shields.io/badge/DuckDB-%2B%20Parquet-FFF000?style=for-the-badge&logo=duckdb&logoColor=black"/>
 <img alt="LightGBM" src="https://img.shields.io/badge/LightGBM-%2B%20XGBoost-9ACD32?style=for-the-badge&logo=lightgbm&logoColor=white"/>
-<img alt="Streamlit" src="https://img.shields.io/badge/Streamlit-app-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white"/>
+<a href="https://nyc-taxi-prediction.streamlit.app/"><img alt="Open the live Streamlit app" src="https://img.shields.io/badge/Streamlit-live%20app-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white"/></a>
 
 **How long will this ride take, and what will it cost?**
 A two-stage machine learning pipeline over the full **2025** NYC TLC trip records:
 predict trip duration from what is known when the taxi is hailed, then predict the
 fare using that predicted duration.
+
+**[Try the live app →](https://nyc-taxi-prediction.streamlit.app/)**
 
 [Status](#status) · [Pipeline](#pipeline) · [Data](#data) · [No peeking](#no-peeking-at-the-future) · [Quickstart](#quickstart)
 
@@ -142,7 +144,7 @@ After the download, run the full pipeline in **`notebooks/nyc_taxi_trip_duration
 
 ### Running the Web Application
 
-To launch the real-time Streamlit web app:
+The app is live at **https://nyc-taxi-prediction.streamlit.app/**. To run it locally instead:
 
 ```bash
 uv run streamlit run app/streamlit_app.py

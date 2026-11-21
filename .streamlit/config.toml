@@ -4,7 +4,8 @@ primaryColor = "#E8A300"
 backgroundColor = "#FFF8EA"
 secondaryBackgroundColor = "#FBEFD2"
 textColor = "#1F2024"
-font = "sans serif"
+font = "Plus Jakarta Sans:https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+baseRadius = "12px"
 
 [client]
 toolbarMode = "minimal"
