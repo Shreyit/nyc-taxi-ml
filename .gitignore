@@ -21,3 +21,7 @@ logs/
 .pytest_cache/
 *.log
 notebooks/.tmp/
+
+# local tool folders
+.agents/
+.claude/
