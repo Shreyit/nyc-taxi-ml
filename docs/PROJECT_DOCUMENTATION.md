@@ -3,6 +3,7 @@
 **Task:** Regression (Trip Duration & Metered Fare Prediction)  
 **Dataset:** NYC TLC Yellow & Green Trip Records, Calendar Year 2025 (49,313,977 raw rows)  
 **Core Implementation:** Single Self-Contained Notebook (`notebooks/nyc_taxi_trip_duration.ipynb`) & Streamlit Web App (`app/streamlit_app.py`)  
+**Live App:** https://nyc-taxi-prediction.streamlit.app/  
 
 ---
 
@@ -73,7 +74,7 @@ Downloaded from NYC TLC CloudFront repositories covering all 12 months of 2025.
 | `RatecodeID`, `payment_type`, `VendorID` | — | `INT` | **Excluded** | Leaky or administrative metadata; excluded. |
 
 ### 3.2 External Geospatial & Environmental Data
-* **TLC Taxi Zones (`taxi_zone_lookup.csv` & `taxi_zones.zip`):** 263 distinct polygons. Centroids projected from EPSG:2263 (NY State Plane feet) to WGS84 coordinates ($lon, lat$).
+* **TLC Taxi Zones (`taxi_zone_lookup.csv` & `taxi_zones.zip`):** 263 distinct polygons. Centroids are computed in EPSG:2263 (NY State Plane, feet) and converted to km for the distance features; WGS84 ($lon, lat$) copies are used only to draw the app map.
 * **Hourly Weather (`nyc_central_park_weather_2025_hourly.parquet`):** Central Park station hourly archive from Open-Meteo (8,760 hours, zero nulls). Joined on pickup hour.
 * **Holiday Calendar (`nyc_holidays_2025.parquet`):** 11 Federal holidays via Python `holidays` library.
 
@@ -94,7 +95,7 @@ The 2025 raw trip audit revealed substantial data anomalies:
 5. **Physical Distance Guard:** `trip_distance >= 0.0`.
 6. **Valid Fare Range:** $0 < \text{fare\_amount} \le 500.0\text{ USD}$.
 7. **Exact Deduplication:** Drops duplicate records matching timestamps, zones, distance, and fare.
-* **Cleaned Dataset Retained:** **$44,511,782$ Yellow ($91.4\%$)** and **$559,224$ Green ($94.6\%$)** $\rightarrow$ **$45,071,006$ Clean Trips**.
+* **Cleaned Dataset Retained:** **$44,511,603$ Yellow ($91.4\%$)** and **$559,036$ Green ($94.5\%$)** $\rightarrow$ **$45,070,639$ Clean Trips**.
 
 ---
 
@@ -123,7 +124,7 @@ Route-level and zone-level traffic speeds change over the year. Using overall da
 * **Cold-Start Fallback Cascade:**
   1. Specific route history (`route_prior_mean`)
   2. Pickup zone history (`pu_prior_mean`)
-  3. Global training median duration (`13.7 min`)
+  3. Overall median duration of the training sample
 
 ---
 
@@ -143,7 +144,7 @@ NYC taxi trips exhibit an 80:1 fleet imbalance. Uniform sampling would starve mo
   * Test: $250,000$ rows
 * **Green Taxis:** **100% retained** across all splits:
   * Train: all $375,907$ rows
-  * Validation: all $100,562$ rows
+  * Validation: all $93,145$ rows
   * Test: all $89,984$ rows
 * **Training Matrix Size:** **$1,375,907$ rows** ($72.7\%$ Yellow, $27.3\%$ Green).
 
@@ -151,12 +152,12 @@ NYC taxi trips exhibit an 80:1 fleet imbalance. Uniform sampling would starve mo
 Empirical learning curves evaluate validation MAE across increasing training sample sizes ($N \in [10\text{k}, 50\text{k}, 100\text{k}, 250\text{k}, 500\text{k}, 1.38\text{M}]$) for both production models in Section 11:
 * **Stage 1 (Duration Model):**
   - Errors drop sharply from $10\text{k} \to 100\text{k}$ trips as zone geometry is learned.
-  - Reaches the "knee" around $\approx 500\text{k} - 1\text{M}$ rows, flattening asymptotically near $\approx 4.36\text{ min}$ MAE.
+  - Validation MAE falls from $4.85$ (10k rows) to $4.47$ (500k) and $4.37$ min at the full $1.38\text{M}$ sample; gains get small after a few hundred thousand rows.
   - Remaining error is irreducible aleatoric noise (unobservable traffic lights, double parking, driver speed variation).
 * **Stage 2 (Fare Model):**
-  - Reaches its knee even earlier ($\approx 250\text{k} - 500\text{k}$ rows) and flattens near $\approx \$3.93$ MAE on validation ($\approx \$5.04$ on the seasonally slower Nov–Dec test holdout).
-  - Converges faster because TLC metered fares are governed by deterministic statutory pricing formulas once distance and duration are established.
-* **Fleet Convergence:** Green taxi errors stabilize at smaller total sample sizes due to geographic restriction to outer boroughs with lower route variability. Ingesting all 45M raw trips would multiply compute by $30\times$ for less than $0.05\text{ min}$ / $\$0.02$ MAE improvement.
+  - Yellow fare MAE is nearly flat from 50k rows ($\$3.82 \to \$3.64$), because metered fares follow fixed pricing rules once distance and duration are known.
+  - Green fare MAE only drops at the full sample ($\approx \$6.5 \to \$4.83$), when all Green trips are included; Green fares need more examples.
+* **Takeaway:** For duration, more Yellow rows give small returns; keeping every Green trip matters most. Training on all 45M trips would cost far more compute for a small expected gain (this was not run, so it is an estimate from the curve).
 
 ---
 
@@ -173,35 +174,34 @@ The system predicts duration first, then feeds that prediction forward to fare:
 ```
 
 * **No Leaky Inputs:** Stage 2 is fed `pred_duration_min`, **never** actual duration.
-* **Out-of-Fold Training Strategy:** Training rows in Stage 1 use out-of-fold predictions so Stage 2 does not train on overfitted duration predictions.
+* **Out-of-Fold Training Strategy:** Stage 2 is trained on 5-fold out-of-fold duration predictions, so it never sees overfitted in-sample duration predictions.
 
 ---
 
 ## 8. Duration Model Benchmarks (Validation Set)
 
-Evaluated on the September–October validation split ($N = 350,562$ trips).
+Evaluated on the September–October validation split ($N = 343,145$ trips).
 
 | Model Family | Sample Rows | Train Sec | Overall MAE (min) | RMSE (min) | $R^2$ | MedAE (min) | Yellow MAE | Green MAE |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| **Baseline: Overall Median** | $1,375,907$ | 0.0 s | 9.46 | 15.31 | -0.14 | 5.90 | 9.83 | 8.48 |
-| **Baseline: Overall Median** | $1,375,907$ | 0.0 s | 7.36 | 10.74 | 0.43 | 5.56 | 7.53 | 6.89 |
-| **Baseline: Route Median** | $1,375,907$ | 0.0 s | 5.39 | 9.48 | 0.56 | 3.12 | 5.55 | 4.96 |
-| **Baseline: Route History Mean** | $1,375,907$ | 0.0 s | 4.96 | 8.23 | 0.67 | 3.16 | 5.12 | 4.51 |
-| **Linear Regression (StandardScaler)** | $1,375,907$ | 4.3 s | 4.84 | 7.84 | 0.70 | 3.28 | 4.94 | 4.57 |
-| **KNN (FAISS FlatL2, $k=25$)** | $300,000$ | 60.3 s | 4.61 | 7.56 | 0.72 | 2.98 | 4.69 | 4.38 |
-| **Decision Tree (depth=10)** | $1,375,907$ | 11.4 s | 4.54 | 7.51 | 0.72 | 2.87 | 4.60 | 4.37 |
-| **Random Forest (100 trees, depth=20)** | $300,000$ | 58.4 s | 4.42 | 7.37 | 0.73 | 2.76 | 4.47 | 4.28 |
+| **Baseline: Overall Median** | $1,375,907$ | 0.0 s | 9.48 | 15.29 | -0.14 | 5.90 | 9.85 | 8.48 |
+| **Baseline: Route Median** | $1,375,907$ | 0.0 s | 5.39 | 9.45 | 0.57 | 3.12 | 5.56 | 4.95 |
+| **Baseline: Route History Mean** | — | 0.0 s | 5.08 | 8.30 | 0.66 | 3.22 | 5.19 | 4.77 |
+| **Linear Regression (StandardScaler)** | $1,375,907$ | 1.5 s | 5.04 | 8.10 | 0.68 | 3.27 | 5.15 | 4.75 |
+| **KNN (FAISS FlatL2, $k=25$)** | $300,000$ | 60.5 s | 5.08 | 8.16 | 0.68 | 3.30 | 5.12 | 4.98 |
+| **Decision Tree (depth=10)** | $1,375,907$ | 8.1 s | 4.50 | 7.37 | 0.74 | 2.93 | 4.52 | 4.43 |
+| **Random Forest (100 trees, depth=20)** | $300,000$ | 37.1 s | 4.42 | 7.33 | 0.74 | 2.82 | 4.46 | 4.31 |
 | **XGBoost (depth=8, lr=0.1)** | $1,375,907$ | 23.6 s | 4.38 | 7.25 | 0.74 | 2.76 | 4.43 | 4.23 |
-| **LightGBM (500 trees, leaves=127)** | $1,375,907$ | **19.6 s** | **4.37** | **7.28** | **0.74** | **2.74** | **4.42** | **4.22** |
-| **HistGradientBoosting** | $1,375,907$ | 79.3 s | **4.36** | 7.27 | **0.74** | **2.74** | **4.41** | **4.22** |
+| **LightGBM (500 trees, leaves=127)** | $1,375,907$ | **21.4 s** | **4.37** | 7.28 | **0.74** | **2.74** | 4.43 | **4.21** |
+| **HistGradientBoosting (lr=0.05, leaves=255)** | $1,375,907$ | 78.4 s | **4.36** | 7.27 | **0.74** | **2.74** | **4.42** | 4.23 |
 
-* **Selection Decision:** **LightGBM** was selected as the champion model. It matches HistGradientBoosting in accuracy (4.37 vs 4.36 min MAE) while training $4\times$ faster (19.6s vs 79.3s) and offering direct C++ serialization for production serving.
+* **Selection Decision:** **LightGBM** was selected as the champion model. It matches HistGradientBoosting in accuracy (4.37 vs 4.36 min MAE) while training about $3.7\times$ faster (21.4 s vs 78.4 s), and it is easy to save and serve in the app.
 
 ---
 
 ## 9. Final Test Holdout Evaluation (Nov–Dec 2025)
 
-The selected LightGBM model was refit on combined **Train + Validation (Jan–Oct, 1,726,469 trips)** and evaluated on the untouched **November–December test holdout ($N = 339,984$ trips)**.
+The selected LightGBM model was refit on combined **Train + Validation (Jan–Oct, 1,719,052 trips)** and evaluated on the untouched **November–December test holdout ($N = 339,984$ trips)**.
 
 | Model / Baseline | Fleet Group | Test MAE (min) | Test RMSE (min) | Test $R^2$ | Test MedAE (min) |
 |---|---|---:|---:|---:|---:|
@@ -209,16 +209,16 @@ The selected LightGBM model was refit on combined **Train + Validation (Jan–Oc
 | | Yellow Only | 4.72 | 7.08 | 0.77 | 3.38 |
 | | Green Only | 4.39 | 7.50 | 0.70 | 2.96 |
 | **Baseline: Route History Mean** | All Trips | 5.22 | 8.49 | 0.66 | 3.31 |
-| | Yellow Only | 5.37 | 8.52 | 0.67 | 3.44 |
-| | Green Only | 4.81 | 8.42 | 0.63 | 2.94 |
+| | Yellow Only | 5.40 | 8.53 | 0.67 | 3.45 |
+| | Green Only | 4.72 | 8.39 | 0.62 | 2.97 |
 
-* **Seasonal Generalization Finding:** Test MAE (4.63 min) degrades slightly from validation MAE (4.37 min). This is an expected winter seasonal slowdown in NYC (Nov–Dec traffic is 15% slower city-wide), not overfitting.
+* **Seasonal Generalization Finding:** Test MAE (4.63 min) degrades slightly from validation MAE (4.37 min). Section 4.3 of the notebook shows trips get slower over the year and Nov–Dec are the slowest months, so part of the gap is seasonal rather than overfitting. LightGBM still beats the route-history baseline by 0.59 min.
 
 ---
 
 ## 10. Stage 2: Fare Prediction Results
 
-### 10.1 Validation Set Comparison ($N = 350,562$)
+### 10.1 Validation Set Comparison ($N = 343,145$)
 | Fare Model | Input Features | MAE ($) | RMSE ($) | $R^2$ |
 |---|---|---:|---:|---:|
 | **Baseline: Overall Median** | None ($14.00) | 10.00 | 16.79 | -0.12 |
@@ -233,6 +233,7 @@ The selected LightGBM model was refit on combined **Train + Validation (Jan–Oc
   * Overall: **MAE = $5.04**, RMSE = $8.65, $R^2 = 0.71$
   * Yellow Cabs: MAE = $5.17, RMSE = $8.56, $R^2 = 0.74$
   * Green Taxis: MAE = $4.67, RMSE = $8.91, $R^2 = 0.58$
+* **Baseline: Route Fare History:** Overall MAE = $5.11, RMSE = $9.47, $R^2 = 0.65$ (Green: MAE $5.81, $R^2 = 0.28$)
 * **Diagnostic Upper Bound (Actual Post-Trip Duration):**
   * Overall: **MAE = $3.66**, RMSE = $8.01, $R^2 = 0.75$
   * Yellow Cabs: MAE = $3.81, RMSE = $8.05, $R^2 = 0.77$
@@ -265,23 +266,22 @@ To evaluate whether knowing taxi type improves predictions, four controlled expe
 ## 12. Error Analysis & Permutation Feature Importance
 
 ### 12.1 Error Distributions & Residual Breakdown
-* **Residual Mean:** $+0.61\text{ min}$ (Yellow) and $+0.72\text{ min}$ (Green), indicating slight conservative over-prediction.
+* **Residual Mean (predicted − actual):** $+0.74\text{ min}$ (Yellow) and $+0.76\text{ min}$ (Green): a slight over-prediction on average. Short trips are over-predicted and long trips under-predicted (the model pulls extremes toward typical values).
 * **Error by Actual Trip Length:**
-  * 1–10 min trips: **MAE = 3.12 min**
-  * 10–20 min trips: **MAE = 3.43 min**
-  * 20–30 min trips: **MAE = 5.29 min**
-  * 30–60 min trips: **MAE = 8.78 min**
-  * 60–180 min trips: **MAE = 18.40 min** (rare airport and cross-borough traffic jams).
+  * 1–10 min trips: **MAE = 3.32 min**
+  * 10–20 min trips: **MAE = 3.38 min**
+  * 20–30 min trips: **MAE = 5.15 min**
+  * 30–60 min trips: **MAE = 8.73 min**
+  * 60–180 min trips: **MAE = 18.25 min** (rare, mostly airport and cross-borough trips stuck in traffic).
 * **Error by Borough:** Lowest in Manhattan (dense historical route coverage); highest in Staten Island and EWR (low sample density).
 
 ### 12.2 Permutation Feature Importance (50k Test Sample)
-Shuffling features one at a time to measure MAE degradation:
-1. `route_prior_mean` (+2.14 min MAE increase) — Historical traffic is the single strongest predictor.
-2. `centroid_km` (+1.48 min MAE increase) — Geographic distance anchor.
-3. `grid_km` (+0.82 min MAE increase) — Manhattan grid geometry.
-4. `hour` & `is_rush_hour` (+0.45 min MAE increase) — Time-of-day traffic waves.
-5. `temperature_c` & `precipitation_mm` (+0.08 min MAE increase) — Weather effects.
-6. `passenger_count` (+0.00 min MAE increase) — Proved zero predictive utility; safely dropped.
+Shuffling one feature at a time and measuring how much the test MAE gets worse (values read from `outputs/figures/permutation_importance.png`, approximate):
+1. `route_prior_mean` (≈ +4.7 min) — historical duration of the route is by far the strongest signal.
+2. `centroid_km` (≈ +1.7 min) — straight-line distance between zone centres.
+3. `hour_cos`, `weekday`, `hour` (≈ +0.2 to +0.7 min) — time-of-day and day-of-week traffic patterns.
+4. `pu_prior_mean`, `fare_pu_prior_mean`, `grid_km`, `is_green` (≈ +0.1 to +0.3 min) — smaller supporting signals.
+5. Weather features do not reach the top 15: city-level hourly weather adds little on top of time and route history.
 
 ### 12.3 Dual SHAP Feature Attribution (TreeExplainer for Both Models)
 While permutation importance scores global loss of accuracy upon column shuffling, SHAP (SHapley Additive exPlanations) beeswarm plots quantify both magnitude and **directionality** across both stages:
@@ -297,7 +297,7 @@ While permutation importance scores global loss of accuracy upon column shufflin
 ## 13. Limitations & Responsible Machine Learning
 
 * **Data Privacy:** All trip records are coarse polygon zone IDs (1–263), preserving individual citizen privacy.
-* **Fairness & Oversampling:** Because Green taxis represent $<2\%$ of raw trips, training models without oversampling would degrade service quality for outer-borough residents. The 100% Green retention strategy guarantees equitable accuracy across fleets.
+* **Fairness & Oversampling:** Because Green taxis represent about $1.2\%$ of raw trips, training models without oversampling would degrade service quality for outer-borough residents. The 100% Green retention strategy guarantees equitable accuracy across fleets.
 * **Causality vs. Prediction:** The model detects traffic correlation; it does not establish road causality. Predictions are meant as planning ETAs, not navigation routing.
 * **Operational Boundary:** TLC models should not be used during extreme weather emergencies or major street grid closures (e.g. UN General Assembly) where historical priors break down.
 
@@ -305,17 +305,24 @@ While permutation importance scores global loss of accuracy upon column shufflin
 
 ## 14. Serving Engine & Streamlit Web Application
 
-To operationalize the models, an interactive web application was developed in `app/streamlit_app.py` supported by `src/serving/predictor.py`.
+The two saved models are served by an interactive app in `app/streamlit_app.py`, backed by `src/serving/predictor.py`.
+It is deployed on Streamlit Community Cloud: **https://nyc-taxi-prediction.streamlit.app/**
 
-### Architectural Highlights
-* **Always-Visible Responsive Map:** The 3D PyDeck map is rendered continuously. As soon as the user selects a pickup or drop-off zone, the map immediately auto-centers, zooms, and updates the green pickup pin, red drop-off pin, and connecting illuminated arc.
-* **Dual Prediction Cards:** Displays estimated duration (with $\pm 4.6\text{ min}$ uncertainty interval) and estimated metered fare.
-* **Zero Passenger Input:** Clean interface without useless passenger count fields.
-* **Sub-5ms Inference:** Precomputed lookup tables evaluate in milliseconds.
+### What the user does (one page, four steps)
+1. **Route:** pick pickup and drop-off zones (or a quick route such as JFK → Times Sq), with a swap button.
+2. **Departure:** pick a date and time, or a preset (morning rush, midday, evening rush, late night).
+3. **Fleet & weather:** Yellow or Green, and a dry / rain / snow scenario.
+4. **Estimate:** duration and fare cards with a "usually" range, trip chips (airport, rush hour, cross-borough), a route map, and a Yellow vs Green comparison for the same route and time.
+
+### How a prediction is made
+* The app builds the **same features as the notebook** for one trip and runs Stage 1, then feeds the predicted duration into Stage 2.
+* **Lookup tables** (`outputs/lookup/`) hold route and pickup-zone history built from **all 45M cleaned 2025 trips** (both fleets, trip-weighted), zone centres in EPSG:2263 km (same as notebook §5.1), and monthly average weather. They are rebuilt with `uv run python scripts/build_serving_lookups.py`.
+* The "usually" range is about −3 / +3 min around the duration (test median error is 3.26 min) and about −$2.5 / +$3 around the fare.
+* Unknown zone IDs (outside 1–263) are rejected; Green-cab hail restrictions and same-zone trips show a warning.
 
 ```bash
-# Launch the Streamlit application
-./.venv/bin/streamlit run app/streamlit_app.py
+# run locally
+uv run streamlit run app/streamlit_app.py
 ```
 
 ---
@@ -333,3 +340,4 @@ To operationalize the models, an interactive web application was developed in `a
 | **D-07** | Blending vs. Single Model | Retain single LightGBM model for final predictions | Avoids pipeline opacity and preserves clean feature importance. |
 | **D-08** | Two-Stage Architecture | Stage 1 predicted duration fed into Stage 2 fare model | Eliminates target leakage while unlocking duration–fare correlation. |
 | **D-09** | Always-Visible Map in App | Unconditional PyDeck map rendering on dropdown change | Instant visual feedback whenever locations are selected. |
+| **D-10** | Train/serve consistency in the app | Build app lookups from all cleaned trips with the notebook's formulas (`build_serving_lookups.py`) | App predictions match how the models were trained. |
