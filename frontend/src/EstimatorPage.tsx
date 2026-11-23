@@ -352,10 +352,6 @@ export default function EstimatorPage({ zones, zoneError }: { zones: Zone[]; zon
 
   return (
     <main className="model-page">
-      <div className="model-topline">
-        <span>LIVE MODEL · TWO-STAGE LIGHTGBM</span>
-        <span className={`status${zoneError || error ? ' has-error' : ''}`}><i />{serviceStatus}</span>
-      </div>
       <div className="mw">
         <aside className="mp" aria-label="Trip map">
           <RouteMap pickup={pickup} dropoff={dropoff} />
@@ -372,6 +368,10 @@ export default function EstimatorPage({ zones, zoneError }: { zones: Zone[]; zon
           {step < 3 && <div className="map-hint">{pickup && dropoff ? 'Route preview · estimate appears after the final step' : 'Choose two taxi zones to preview your route'}</div>}
           {step === 3 && loading && <div className="map-loading" role="status">Calculating your estimate…</div>}
         </aside>
+        <div className="model-topline">
+          <span>LIVE MODEL · TWO-STAGE LIGHTGBM</span>
+          <span className={`status${zoneError || error ? ' has-error' : ''}`}><i />{serviceStatus}</span>
+        </div>
         <div className="pn">
           <StepProgress step={step} canReach={canReach} onGo={(target) => { if (target !== 3) setLoading(false); setStep(target) }} />
           <div className="steps-viewport">

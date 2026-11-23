@@ -9,11 +9,14 @@
 <img alt="DuckDB" src="https://img.shields.io/badge/DuckDB-%2B%20Parquet-FFF000?style=for-the-badge&logo=duckdb&logoColor=black"/>
 <img alt="LightGBM" src="https://img.shields.io/badge/LightGBM-%2B%20XGBoost-9ACD32?style=for-the-badge&logo=lightgbm&logoColor=white"/>
 <img alt="React" src="https://img.shields.io/badge/React-frontend-149ECA?style=for-the-badge&logo=react&logoColor=white"/>
+<a href="https://nyc-taxi-ml.vercel.app/"><img alt="Open the live app on Vercel" src="https://img.shields.io/badge/Vercel-live%20app-000000?style=for-the-badge&logo=vercel&logoColor=white"/></a>
 
 **How long will this ride take, and what will it cost?**
 A two-stage machine learning pipeline and interactive React application built on
 **2025** NYC TLC trip records. The app estimates trip duration from pre-trip
 information, then predicts the metered fare using that estimated duration.
+
+**[Try the live app →](https://nyc-taxi-ml.vercel.app/)**
 
 [Status](#status) · [Pipeline](#pipeline) · [Data](#data) · [No peeking](#no-peeking-at-the-future) · [Web app](#web-application-quickstart) · [Analysis](#machine-learning-quickstart)
 
@@ -49,13 +52,13 @@ Status of the final notebook and project components:
 | **7** | **Stage 1: Trip Duration Model** (Baselines, ML suite, SHAP beeswarm, learning curve, fleet transfer) | **Complete & Executed** (Test MAE: **4.63 min**) |
 | **8** | **Stage 2: Metered Fare Model** (Forward-pass duration integration, upper bound, SHAP, learning curve) | **Complete & Executed** (Test MAE: **$5.04**) |
 | **9** | **System Integration & Pipeline Evaluation** (End-to-end two-stage serving & error propagation) | **Complete & Executed** |
-| **10** | **Limitations & Edge Cases** (Residual anomalies, airport flat rates, out-of-distribution extremes) | **Complete & Executed** |
-| **11** | **Conclusion & Responsible AI** (Fairness audit across boroughs, deployment recommendations) | **Complete & Executed** |
+| **10** | **Limitations & Responsible Use** (Privacy, fairness across fleets, overclaiming, practical use) | **Complete & Executed** |
+| **11** | **Conclusion & Next Steps** (Answer to the research question, best model, future work) | **Complete & Executed** |
 | **—** | **React Web Application** (`frontend/` + FastAPI model service in `api/`) | **Complete & Verified** |
 
 **Split:** train Jan–Aug · validation Sep–Oct · test Nov–Dec 2025 (strict chronological, no shuffling).  
 **Models:** Median and route-history baselines, Linear Regression, Decision Tree, Random Forest, HistGradientBoosting, LightGBM, XGBoost, and FAISS KNN.  
-**Official Metrics:** MAE (primary), RMSE, $R^2$, and MedAE, reported overall and per taxi fleet. All 81 cells executed with zero errors.
+**Official Metrics:** MAE (primary), RMSE, $R^2$, and MedAE, reported overall and per taxi fleet. Every cell runs top to bottom with no errors.
 
 ## Pipeline
 
@@ -72,7 +75,7 @@ calendar year **2025**, Yellow and Green taxis:
 | | Yellow | Green | Total |
 |---|---:|---:|---:|
 | Raw rows (Jan–Dec 2025) | 48,722,602 | 591,375 | 49,313,977 |
-| Used for modelling | 44,511,782 (91.4%) | 559,224 (94.6%) | 45,071,006 |
+| Used for modelling | 44,511,603 (91.4%) | 559,036 (94.5%) | 45,070,639 |
 
 Plus the TLC zone lookup and shapefile, hourly weather for Central Park from the Open-Meteo
 archive, and the 2025 US federal and New York State holiday calendars. Standard FHV records are
@@ -84,7 +87,7 @@ Nothing is assumed about availability: all 24 files were verified live before th
 
 ## Two very different fleets
 
-<img src="assets/imbalance.svg" alt="Bar chart: 44,511,782 Yellow trips vs 559,224 Green trips, about 80 to 1" width="100%"/>
+<img src="assets/imbalance.svg" alt="Bar chart: about 44.5 million Yellow trips vs 0.56 million Green trips, about 80 to 1" width="100%"/>
 
 Yellow outnumbers Green by roughly **80 to 1** and concentrates in Manhattan and at the airports.
 Green cabs (Boro Taxis) cannot take street hails in most of Manhattan and mostly serve the outer
@@ -96,7 +99,7 @@ boroughs, which is why every result in this project is reported per taxi type ra
 |---|---|
 | Pickup hour, day, month, weekend, rush hour, holiday | Drop-off timestamp, actual duration |
 | Pickup & drop-off zone, borough, zone centroids | Metered `trip_distance` |
-| Haversine and grid distance from zone geometry | `fare_amount`, `tip_amount`, `total_amount` |
+| Straight-line and grid distance between zone centres | `fare_amount`, `tip_amount`, `total_amount` |
 | Weather at the pickup hour, taxi type | Tolls, surcharges, `congestion_surcharge`, `cbd_congestion_fee` |
 | Route/zone history built from **earlier months only** | `RatecodeID`, `payment_type`, `store_and_fwd_flag` |
 
@@ -121,13 +124,16 @@ nyc-taxi-ml/
 │   ├── figures/              (tracked) 16 official evaluation and diagnostic plots
 │   ├── lookup/               (tracked) fast runtime spatial lookup parquets
 │   └── models/               (tracked) trained duration & fare LightGBM models + feature schemas
-├── scripts/                  get_data.py (download), export_serving_artifacts.py (serving export)
+├── scripts/                  get_data.py (download), build_serving_lookups.py (app lookup tables)
 ├── frontend/                 React + TypeScript + Vite app (Vercel frontend)
 ├── src/serving/              predictor.py (two-stage inference engine)
 ├── tests/                    serving and FastAPI endpoint tests
 ├── vercel.json               Vercel Services routing for frontend + API
 └── docs/
-    └── PROJECT_DOCUMENTATION.md       exhaustive technical report & architecture documentation
+    ├── PROJECT_DOCUMENTATION.md       full technical documentation
+    ├── WORKFLOW_EXPLAINED.md          the project in plain language: what, why, results
+    ├── report.md                      course report (Markdown draft)
+    └── latex/                         course report in LaTeX: report.tex, report.pdf, build.sh
 ```
 
 ## Machine-learning quickstart
@@ -155,6 +161,19 @@ date and time, and taxi fleet selection, then compares predictions for both
 fleets. Its fixed OpenStreetMap view draws a straight line between zone
 centroids; it is **not** a road route or turn-by-turn navigation. Predictions
 come from the tracked LightGBM serving artifacts, not a browser-side formula.
+
+**Live:** https://nyc-taxi-ml.vercel.app/
+
+What the app does:
+
+- **Overview:** a scroll story through a taxi windscreen, with a live dashboard (speedometer, rev counter,
+  taxi meter, radio, wipers) and a synthesised cab start sound (Web Audio API, no audio files).
+- **Estimator:** four steps (route, departure, fleet, estimate) with a progress stepper, zones grouped by
+  borough, quick routes, and a result showing duration, fare, expected ranges, arrival time and a
+  Yellow vs Green comparison on a map.
+- **Methodology:** the data, the two-stage pipeline and the limits, in plain language.
+- Smooth scrolling with [Lenis](https://lenis.darkroom.engineering/) and animations with
+  [GSAP](https://gsap.com/); everything respects the system "reduce motion" setting.
 
 Prerequisites: Python 3.14+ with `uv`, and Node.js 22.12+ with npm. From the
 repository root, start the API in one terminal:
@@ -264,6 +283,8 @@ npm --prefix frontend run build
 The complete, exhaustive technical documentation is consolidated in:
 
 * 📄 **[`docs/PROJECT_DOCUMENTATION.md`](docs/PROJECT_DOCUMENTATION.md)**: Technical report covering the modeling study, data and leakage controls, evaluation, limitations, and the current React + FastAPI serving architecture.
+* 🧭 **[`docs/WORKFLOW_EXPLAINED.md`](docs/WORKFLOW_EXPLAINED.md)**: The whole project in plain language: each step, why we did it, the result, and key takeaways.
+* 📝 **[`docs/latex/report.pdf`](docs/latex/report.pdf)**: The course report (built from [`report.tex`](docs/latex/report.tex) with `docs/latex/build.sh`).
 
 ## Responsible use
 
