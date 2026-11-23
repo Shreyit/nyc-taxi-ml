@@ -275,11 +275,11 @@ To evaluate whether knowing taxi type improves predictions, four controlled expe
 * **Error by Borough:** Lowest in Manhattan (dense historical route coverage); highest in Staten Island and EWR (low sample density).
 
 ### 12.2 Permutation Feature Importance (50k Test Sample)
-Shuffling one feature at a time and measuring how much the test MAE gets worse (values read from `outputs/figures/permutation_importance.png`, approximate):
-1. `route_prior_mean` (≈ +4.7 min) — historical duration of the route is by far the strongest signal.
-2. `centroid_km` (≈ +1.7 min) — straight-line distance between zone centres.
+Shuffling one feature at a time and measuring how much the test MAE gets worse (values read from `outputs/figures/duration_feature_importance.png`, approximate):
+1. `route_prior_mean` (≈ +4.5 min) — historical duration of the route is by far the strongest signal.
+2. `centroid_km` (≈ +1.8 min) — straight-line distance between zone centres.
 3. `hour_cos`, `weekday`, `hour` (≈ +0.2 to +0.7 min) — time-of-day and day-of-week traffic patterns.
-4. `pu_prior_mean`, `fare_pu_prior_mean`, `grid_km`, `is_green` (≈ +0.1 to +0.3 min) — smaller supporting signals.
+4. `fare_pu_prior_mean`, `is_green`, `fare_route_prior_mean`, `hour_sin` (≈ +0.1 min each) — smaller supporting signals.
 5. Weather features do not reach the top 15: city-level hourly weather adds little on top of time and route history.
 
 ### 12.3 Dual SHAP Feature Attribution (TreeExplainer for Both Models)
