@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-900 0 1800 600">
+  <defs>
+    <linearGradient id="scrim" x1="0" x2="1">
+      <stop offset="0" stop-color="#191612" stop-opacity=".9"/><stop offset=".5" stop-color="#191612" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="beam" x1="0" x2="1">
+      <stop offset="0" stop-color="#fff3c4" stop-opacity=".28"/><stop offset="1" stop-color="#fff3c4" stop-opacity="0"/>
+    </linearGradient>
+    <g id="cab">
+      <path d="M0 70Q0 48 26 44L70 12Q80 4 96 4H190Q206 4 216 14L250 44Q290 48 292 72V92H0Z"/>
+      <path d="M82 18H136V44H58ZM146 18H196L226 44H146Z" fill="#2c3c42"/>
+      <rect x="118" y="-12" width="48" height="16" rx="3" fill="#f6e7b5" stroke="#121410" stroke-width="2"/>
+      <text x="142" y="0" font-family="sans-serif" font-weight="800" font-size="10" text-anchor="middle" fill="#121410">TAXI</text>
+      <circle cx="62" cy="94" r="22" fill="#0b0d0b"/><circle cx="62" cy="94" r="9" fill="#5d655d"/>
+      <circle cx="232" cy="94" r="22" fill="#0b0d0b"/><circle cx="232" cy="94" r="9" fill="#5d655d"/>
+      <rect x="282" y="58" width="10" height="10" rx="2" fill="#fff3c4"/>
+      <path d="M292 56L520 20V120L292 72Z" fill="url(#beam)"/>
+    </g>
+  </defs>
+  <rect x="-900" width="1800" height="600" fill="#1d1a16"/>
+  <rect x="-900" y="470" width="1800" height="130" fill="#12110e"/>
+  <path d="M-900 520H900" stroke="#3a352c" stroke-width="6" stroke-dasharray="44 30"/>
+  <use href="#cab" transform="translate(360 330) scale(1.15)" fill="#c9a24c"/>
+  <use href="#cab" transform="translate(560 390) scale(1.15)" fill="#557a62"/>
+  <rect x="-900" width="1800" height="600" fill="url(#scrim)"/>
+</svg>

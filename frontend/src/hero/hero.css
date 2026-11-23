@@ -1,0 +1,60 @@
+/* Hero-only additions: street life, rain, title accents, controls, trip progress. */
+.street-life .trails { mix-blend-mode: screen; }
+.rain-glass { visibility: hidden; }
+#st.raining .rain-glass { visibility: visible; }
+
+#rain-street { position: absolute; z-index: 1; inset: -40px; pointer-events: none; opacity: 0; transition: opacity 1.2s ease;
+  background:
+    repeating-linear-gradient(104deg, transparent 0 46px, #dce7ea1a 46px 47px, transparent 47px 92px),
+    repeating-linear-gradient(101deg, transparent 0 71px, #dce7ea14 71px 72px, transparent 72px 130px),
+    linear-gradient(#17242a40, #0b121566);
+  background-size: 100% 220px, 100% 300px, 100% 100%;
+  animation: rain-fall .5s linear infinite; }
+#st.raining #rain-street { opacity: 1; }
+@keyframes rain-fall { to { background-position: -50px 220px, -64px 300px, 0 0; } }
+
+#ht h1 { text-shadow: none; }
+#ht h1 em { position: relative; font-style: normal; color: #f0cf78; --ul: 0%;
+  background: linear-gradient(#d9b45a, #d9b45a) 0 88% / var(--ul) .055em no-repeat; }
+
+.hero-ctl { position: absolute; z-index: 4; bottom: 30px; left: 34px; display: flex; gap: 8px; }
+
+.sc small { font: inherit; }
+.sc i { position: relative; display: block; width: 86px; height: 2px; border-radius: 2px; background: #ffffff26; }
+.sc i b { position: absolute; inset: 0; border-radius: inherit; background: var(--accent); transform-origin: left; transform: scaleX(0); }
+.sc i::before, .sc i::after { content: ''; position: absolute; top: -3px; width: 8px; height: 8px; border-radius: 50%; border: 2px solid #d9b45a; background: #0d110e; }
+.sc i::before { left: -4px; }
+.sc i::after { right: -4px; border-color: #ffffff55; }
+
+.dash-btn { color: #c9cfc2; cursor: pointer; outline: none; }
+.dash-btn.live { pointer-events: auto; }
+.dash-btn-cap { transition: fill .2s, stroke .2s; transform-box: fill-box; transform-origin: center; }
+.dash-btn:hover .dash-btn-cap { fill: #323a35; stroke: #d9b45a; }
+.dash-btn:focus-visible .dash-btn-cap { stroke: #f0cf78; stroke-width: 3; }
+.dash-btn:active .dash-btn-cap { scale: .9; }
+.dash-btn.pressed { color: #f0cf78; }
+.dash-btn.pressed .dash-btn-cap { fill: #1a201c; stroke: #d9b45a; }
+.radio-tuning { animation: radio-blink .8s steps(2) infinite; }
+@keyframes radio-blink { 50% { opacity: .2; } }
+
+@media (max-aspect-ratio: 1/1) {
+  #st { --u: calc(100svh / 900); }
+  #in-wrap { inset: 0; }
+  /* Portrait: keep the driver's side (gauges + wheel) in view instead of the radio. */
+  /* ...and lift it so the windscreen starts just under the floating nav. */
+  #in { overflow: visible; top: calc(-70 * var(--u)); bottom: auto; width: calc(1600 * var(--u)); height: calc(900 * var(--u)); left: calc(-262 * var(--u)); transform-origin: calc(262 * var(--u) + 50vw) calc(355 * var(--u)); }
+  #ht { top: calc(325 * var(--u)); }
+}
+
+@media (max-width: 820px) {
+  .hero-ctl { left: 16px; bottom: 22px; }
+  .sc { right: 16px; bottom: 22px; }
+  .sc small { display: none; }
+  .sc i { width: 54px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #rain-street { animation: none; }
+  .sc span { animation: none; }
+  .radio-tuning { animation: none; }
+}

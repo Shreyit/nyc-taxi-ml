@@ -28,3 +28,13 @@ notebooks/.tmp/
 .claude/
 .vercel
 .env*
+
+# LaTeX build files
+*.aux
+*.toc
+*.lof
+*.lot
+*.out
+*.fls
+*.fdb_latexmk
+*.synctex.gz

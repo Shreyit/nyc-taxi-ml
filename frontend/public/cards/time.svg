@@ -19,5 +19,4 @@
   <g fill="url(#win)"><rect x="430" y="300" width="70" height="300"/><rect x="510" y="250" width="56" height="350"/><rect x="760" y="280" width="64" height="320"/><path d="M660 600V200l26-40 26 40v400z"/></g>
   <rect y="540" width="900" height="60" fill="#3a3e36"/>
   <path d="M0 570H900" stroke="#d9b45a" stroke-width="4" stroke-dasharray="30 26"/>
-  <rect width="900" height="600" fill="url(#fade)"/>
 </svg>

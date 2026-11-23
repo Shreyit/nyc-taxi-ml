@@ -1,10 +1,14 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import './App.css'
 import { getZones } from './api'
-import { gsap, reducedMotion, revealOnScroll, ScrollTrigger, scrollToElement, scrollToTop, startSmoothScroll } from './motion'
+import { gsap, reducedMotion, revealOnScroll, ScrollTrigger, scrollToTop, startSmoothScroll } from './motion'
 import type { Page, Zone } from './types'
 import EstimatorPage from './EstimatorPage'
+import MethodologyPage from './MethodologyPage'
 import { playTaxiStart } from './engineSound'
+import { playWiperSwish, startRainSound, stopRainSound } from './rainSound'
+import { createRadio, type Radio, type RadioState } from './radio'
+import { animateStreet, createRain, createWipers, RadioButtons, RadioDisplay, RainGlass, SplitText, StreetLife, Wipers } from './hero'
 
 const pageIds: Page[] = ['home', 'model', 'docs']
 
@@ -17,26 +21,79 @@ function Loader({ active }: { active: boolean }) {
   return (
     <div id="ld" className={active ? '' : 'off'} aria-live="polite" aria-label="Loading page">
       <svg viewBox="0 0 300 150" aria-hidden="true">
+        <defs>
+          <linearGradient id="ld-paint" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#ffd45c" />
+            <stop offset=".55" stopColor="#f7b21b" />
+            <stop offset="1" stopColor="#cf8d0c" />
+          </linearGradient>
+          <linearGradient id="ld-glass" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#c9ecff" />
+            <stop offset="1" stopColor="#5d93b3" />
+          </linearGradient>
+          <linearGradient id="ld-sign" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#fffbe8" />
+            <stop offset="1" stopColor="#f3e4b0" />
+          </linearGradient>
+          <radialGradient id="ld-rim">
+            <stop offset="0" stopColor="#f4f6f7" />
+            <stop offset=".7" stopColor="#a9b1b6" />
+            <stop offset="1" stopColor="#6b7378" />
+          </radialGradient>
+          <radialGradient id="ld-beam" cx="0" cy=".5" r="1">
+            <stop offset="0" stopColor="#fff6cf" stopOpacity=".9" />
+            <stop offset="1" stopColor="#fff6cf" stopOpacity="0" />
+          </radialGradient>
+          <pattern id="ld-check" width="6" height="6" patternUnits="userSpaceOnUse">
+            <rect width="6" height="6" fill="#f6f1e2" />
+            <rect width="3" height="3" fill="#0B1020" />
+            <rect x="3" y="3" width="3" height="3" fill="#0B1020" />
+          </pattern>
+        </defs>
+        <ellipse cx="152" cy="135" rx="128" ry="4" fill="#0B1020" opacity=".22" />
         <g className="bob">
-          <rect x="105" y="30" width="80" height="22" rx="3" fill="#FFF3C4" stroke="#0B1020" strokeWidth="3" />
-          <text x="145" y="46" fontFamily="sans-serif" fontWeight="800" fontSize="12" textAnchor="middle" fill="#0B1020">NEW YORK</text>
-          <path d="M18 104Q16 86 44 82L72 58H190L220 82Q272 84 284 104V114H18Z" fill="#F7A800" stroke="#0B1020" strokeWidth="4" strokeLinejoin="round" />
-          <path d="M82 64H134V82H62ZM142 64H186L208 82H142Z" fill="#BDE8FF" stroke="#0B1020" strokeWidth="3" strokeLinejoin="round" />
-          <path d="M22 94H280" stroke="#0B1020" strokeWidth="6" strokeDasharray="6 6" />
-          <text x="168" y="108" fontFamily="sans-serif" fontWeight="800" fontSize="12" fill="#0B1020">TAXI</text>
-          <rect x="14" y="88" width="8" height="12" rx="2" fill="#E5322D" />
+          {/* roof sign with top face, stand and glow */}
+          <path d="M122 58V50M168 58V50" stroke="#0B1020" strokeWidth="3" />
+          <path d="M109 30L114 25H176L181 30Z" fill="#fff8de" stroke="#0B1020" strokeWidth="2.5" strokeLinejoin="round" />
+          <rect x="105" y="30" width="80" height="21" rx="3" fill="url(#ld-sign)" stroke="#0B1020" strokeWidth="3" />
+          <text x="145" y="45" fontFamily="sans-serif" fontWeight="800" fontSize="12" textAnchor="middle" fill="#0B1020">NEW YORK</text>
+          <path d="M97 60L90 40" stroke="#0B1020" strokeWidth="1.6" strokeLinecap="round" />
+          {/* body */}
+          <path d="M20 106Q18 90 40 85L70 82Q80 66 96 60L178 58Q192 58 202 66L226 82Q262 84 279 93Q286 99 285 108V112Q285 116 280 116H24Q19 116 20 110Z" fill="url(#ld-paint)" stroke="#0B1020" strokeWidth="3.5" strokeLinejoin="round" />
+          <path d="M38 89Q150 84 266 89" fill="none" stroke="#fff" strokeOpacity=".45" strokeWidth="2" strokeLinecap="round" />
+          <path d="M24 108H281" stroke="#a86f06" strokeOpacity=".55" strokeWidth="5" />
+          {/* windows, pillars and reflections */}
+          <path d="M84 82L99 65Q102 62 108 62H139V82Z" fill="url(#ld-glass)" stroke="#0B1020" strokeWidth="3" strokeLinejoin="round" />
+          <path d="M146 62H180Q187 62 193 67L211 82H146Z" fill="url(#ld-glass)" stroke="#0B1020" strokeWidth="3" strokeLinejoin="round" />
+          <path d="M104 80L116 64H124L112 80ZM162 80L172 64H178L168 80Z" fill="#fff" opacity=".45" />
+          {/* checker stripe */}
+          <path d="M30 94H276V100H30Z" fill="url(#ld-check)" stroke="#0B1020" strokeWidth="1" />
+          {/* doors, handles, mirror, lettering */}
+          <path d="M92 84V112M142 84V112M196 84Q200 98 198 112" stroke="#0B1020" strokeOpacity=".55" strokeWidth="1.6" fill="none" />
+          <rect x="116" y="87" width="12" height="3.5" rx="1.75" fill="#3d3a33" />
+          <rect x="168" y="87" width="12" height="3.5" rx="1.75" fill="#3d3a33" />
+          <path d="M210 77H221Q225 77 225 81Q225 85 221 85H213Z" fill="#2b2f36" stroke="#0B1020" strokeWidth="1.5" />
+          <text x="170" y="109" fontFamily="sans-serif" fontWeight="800" fontSize="9" textAnchor="middle" fill="#0B1020">TAXI</text>
+          <text x="118" y="109" fontFamily="monospace" fontWeight="700" fontSize="6" textAnchor="middle" fill="#0B1020" opacity=".7">7J42</text>
+          {/* lights and bumpers */}
+          <ellipse cx="300" cy="99" rx="22" ry="8" fill="url(#ld-beam)" />
+          <path d="M276 95H283Q285 95 285 98V101H276Z" fill="#fff7d1" stroke="#0B1020" strokeWidth="1.5" />
+          <rect x="16" y="90" width="7" height="12" rx="2" fill="#E5322D" stroke="#0B1020" strokeWidth="1.5" />
+          <rect x="274" y="106" width="14" height="9" rx="3" fill="#4b4f57" stroke="#0B1020" strokeWidth="2" />
+          <rect x="13" y="106" width="14" height="9" rx="3" fill="#4b4f57" stroke="#0B1020" strokeWidth="2" />
+          {/* wheel arches */}
+          <path d="M48 116A22 22 0 0 1 92 116ZM206 116A22 22 0 0 1 250 116Z" fill="#1b1d22" />
         </g>
-        <g stroke="#0B1020" strokeWidth="4">
-          <g className="wh">
-            <circle cx="70" cy="118" r="17" fill="#222" />
-            <circle cx="70" cy="118" r="6" fill="#BDE8FF" />
-            <path d="M70 104V132M56 118H84" stroke="#555" strokeWidth="2" />
-          </g>
-          <g className="wh">
-            <circle cx="228" cy="118" r="17" fill="#222" />
-            <circle cx="228" cy="118" r="6" fill="#BDE8FF" />
-            <path d="M228 104V132M214 118H242" stroke="#555" strokeWidth="2" />
-          </g>
+        <g stroke="#0B1020" strokeWidth="3">
+          {[70, 228].map((x) => (
+            <g className="wh" key={x}>
+              <circle cx={x} cy="118" r="17" fill="#1c1e22" />
+              <circle cx={x} cy="118" r="14.5" fill="none" stroke="#33363c" strokeWidth="2" strokeDasharray="3 2.2" />
+              <circle cx={x} cy="118" r="9.5" fill="url(#ld-rim)" strokeWidth="1.5" />
+              <path d={`M${x} 109.5V126.5M${x - 8} 115L${x + 8} 121M${x - 8} 121L${x + 8} 115`} stroke="#5d656b" strokeWidth="1.5" />
+              <circle cx={x} cy="118" r="2.6" fill="#0B1020" strokeWidth="0" />
+            </g>
+          ))}
         </g>
         <path d="M0 138H300" stroke="#0B1020" strokeWidth="4" />
         <path className="rd" d="M0 146H300" stroke="#0B1020" strokeWidth="4" strokeDasharray="26 14" />
@@ -162,21 +219,80 @@ function Navigation({ page }: { page: Page }) {
   )
 }
 
+// Analogue dial: 270° sweep, minor/major ticks, numbers, optional red zone, tapered needle and glass glint.
+const SWEEP = 135
+const polar = (cx: number, cy: number, radius: number, degrees: number) => {
+  const a = (degrees * Math.PI) / 180
+  return [cx + radius * Math.sin(a), cy - radius * Math.cos(a)] as const
+}
+const angleFor = (value: number, max: number) => -SWEEP + (value / max) * SWEEP * 2
+
+function Gauge({ cx, cy, max, major, minor, label, unit, redFrom, needleAngle, needleRef, needleClass }: {
+  cx: number; cy: number; max: number; major: number; minor: number; label: string; unit: string
+  redFrom?: number; needleAngle: number; needleRef?: React.Ref<SVGGElement>; needleClass?: string
+}) {
+  const ticks: React.ReactNode[] = []
+  for (let value = 0; value <= max + 1e-6; value += minor) {
+    const isMajor = Math.abs(value / major - Math.round(value / major)) < 1e-6
+    const angle = angleFor(value, max)
+    const [x1, y1] = polar(cx, cy, 52, angle)
+    const [x2, y2] = polar(cx, cy, isMajor ? 43 : 47.5, angle)
+    const hot = redFrom !== undefined && value >= redFrom
+    ticks.push(<line key={value} x1={x1} y1={y1} x2={x2} y2={y2} stroke={hot ? '#e5533f' : isMajor ? '#efe3b4' : '#8d927f'} strokeWidth={isMajor ? 2.6 : 1.2} strokeLinecap="round" />)
+    if (isMajor) {
+      const [tx, ty] = polar(cx, cy, 34, angle)
+      ticks.push(<text key={`n${value}`} x={tx} y={ty + 3} textAnchor="middle" fontFamily="Manrope, sans-serif" fontWeight="700" fontSize="8" fill={hot ? '#ef7a63' : '#d8d6c4'}>{value}</text>)
+    }
+  }
+  let redArc = null
+  if (redFrom !== undefined) {
+    const [ax, ay] = polar(cx, cy, 50, angleFor(redFrom, max))
+    const [bx, by] = polar(cx, cy, 50, angleFor(max, max))
+    redArc = <path d={`M${ax} ${ay}A50 50 0 0 1 ${bx} ${by}`} fill="none" stroke="#e5533f" strokeOpacity=".7" strokeWidth="4" />
+  }
+  return (
+    <g>
+      <circle cx={cx} cy={cy} r="66" fill="#050807" />
+      <circle cx={cx} cy={cy} r="63" fill="url(#gauge-face)" stroke="url(#bezel)" strokeWidth="6" />
+      <circle cx={cx} cy={cy} r="57" fill="none" stroke="#000" strokeOpacity=".55" strokeWidth="3" />
+      {redArc}
+      {ticks}
+      <text x={cx} y={cy + 24} textAnchor="middle" fontFamily="Manrope, sans-serif" fontWeight="800" fontSize="8.5" letterSpacing="1.5" fill="#c7c9bd">{label}</text>
+      <text x={cx} y={cy + 34} textAnchor="middle" fontFamily="Manrope, sans-serif" fontWeight="600" fontSize="6" letterSpacing="1" fill="#80867a">{unit}</text>
+      <g ref={needleRef} className={needleClass} transform={`rotate(${needleAngle} ${cx} ${cy})`} filter="url(#needle-glow)">
+        <path d={`M${cx - 2.4} ${cy + 12}L${cx - 0.7} ${cy - 50}H${cx + 0.7}L${cx + 2.4} ${cy + 12}Z`} fill="#ffb238" />
+        <path d={`M${cx - 0.5} ${cy}V${cy - 48}`} stroke="#fff2c2" strokeWidth=".8" />
+      </g>
+      <circle cx={cx} cy={cy} r="7" fill="url(#bezel)" />
+      <circle cx={cx} cy={cy} r="3" fill="#0b0f0d" />
+      <path d={`M${cx - 44} ${cy - 30}A54 54 0 0 1 ${cx + 22} ${cy - 50}`} fill="none" stroke="#fff" strokeOpacity=".08" strokeWidth="9" strokeLinecap="round" />
+    </g>
+  )
+}
+
 function CityScene({ ready }: { ready: boolean }) {
   const glassRef = useRef<SVGSVGElement>(null)
   const photoRef = useRef<HTMLImageElement>(null)
   const titleRef = useRef<HTMLDivElement>(null)
   const finishRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
-  const skylineRef = useRef<SVGGElement>(null)
-  const roadRef = useRef<SVGGElement>(null)
-  const buildingsRef = useRef<SVGGElement>(null)
-  const mphRef = useRef<SVGPathElement>(null)
+  const mphRef = useRef<SVGGElement>(null)
   const odoRef = useRef<SVGTextElement>(null)
   const meterRef = useRef<SVGTextElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
+  const sceneRef = useRef<HTMLDivElement>(null)
+  const introRef = useRef<gsap.core.Timeline | null>(null)
+  const rainRef = useRef<ReturnType<typeof createRain> | null>(null)
+  const wipersRef = useRef<ReturnType<typeof createWipers> | null>(null)
+  const radioRef = useRef<Radio | null>(null)
+  const eqRef = useRef<gsap.core.Tween[]>([])
+  const [radio, setRadio] = useState<RadioState | null>(null)
+  const [dashLive, setDashLive] = useState(true)
   const [soundOn, setSoundOn] = useState(() => {
     try { return localStorage.getItem('taxi-sound') !== 'off' } catch { return true }
+  })
+  const [rain, setRain] = useState(() => {
+    try { return localStorage.getItem('taxi-rain') === 'on' } catch { return false }
   })
   const startedRef = useRef(false)
 
@@ -184,8 +300,8 @@ function CityScene({ ready }: { ready: boolean }) {
     if (reducedMotion()) return
     // the rev needle kicks when the engine catches, then settles back to idle
     gsap.timeline({ delay })
-      .to('.rpm-needle', { rotation: 95, svgOrigin: '554 700', duration: 0.32, ease: 'power2.out', overwrite: 'auto' })
-      .to('.rpm-needle', { rotation: 0, svgOrigin: '554 700', duration: 1.3, ease: 'power3.inOut' })
+      .to('.rpm-needle', { rotation: angleFor(5.2, 8), svgOrigin: '554 700', duration: 0.32, ease: 'power2.out', overwrite: 'auto' })
+      .to('.rpm-needle', { rotation: angleFor(0.8, 8), svgOrigin: '554 700', duration: 1.3, ease: 'power3.inOut' })
   }
   const startEngine = () => playTaxiStart((delay) => {
     startedRef.current = true
@@ -198,6 +314,42 @@ function CityScene({ ready }: { ready: boolean }) {
     return startEngine()
   }, [ready, soundOn])
 
+  useEffect(() => {
+    if (ready) introRef.current?.play()
+  }, [ready])
+
+  // One dashboard radio per visit to the home page; it only plays after a click on POWER or NEXT.
+  useEffect(() => {
+    const set = createRadio()
+    radioRef.current = set
+    set.preload()
+    const unsubscribe = set.subscribe(setRadio)
+    return () => {
+      unsubscribe()
+      set.dispose()
+      radioRef.current = null
+    }
+  }, [])
+
+  // The equalizer only dances while a station is actually playing.
+  const playing = !!radio?.on && !radio.loading
+  useEffect(() => {
+    const bars = eqRef.current
+    const rects = sceneRef.current?.querySelectorAll('.eq rect')
+    if (!rects?.length) return
+    // reduced motion: no bouncing, just a steady level while a station plays
+    if (!bars.length) { gsap.set(rects, { scaleY: playing ? 0.6 : 0.12 }); return }
+    bars.forEach((bar) => (playing ? bar.play() : bar.pause()))
+    if (!playing) gsap.to(rects, { scaleY: 0.12, duration: 0.5, ease: 'power2.out', overwrite: false })
+  }, [playing])
+
+  useEffect(() => {
+    rainRef.current?.set(rain, reducedMotion())
+    wipersRef.current?.setRain(rain)
+    if (rain) startRainSound()
+    else stopRainSound()
+  }, [rain])
+
   const toggleSound = () => {
     const next = !soundOn
     setSoundOn(next)
@@ -205,81 +357,109 @@ function CityScene({ ready }: { ready: boolean }) {
     if (next) startEngine()
   }
 
-  useEffect(() => {
-    let frame = 0
-    const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
-    const smooth = (start: number, end: number, value: number) => {
-      const t = clamp((value - start) / (end - start), 0, 1)
-      return t * t * (3 - 2 * t)
-    }
-    const transform = (scale: number) => `translate(800 450) scale(${scale}) translate(-800 -450)`
+  const toggleRain = () => {
+    const next = !rain
+    setRain(next)
+    try { localStorage.setItem('taxi-rain', next ? 'on' : 'off') } catch { /* storage unavailable */ }
+  }
 
-    const update = () => {
-      cancelAnimationFrame(frame)
-      frame = requestAnimationFrame(() => {
-        const track = document.querySelector<HTMLElement>('#hw')
-        if (!track) return
-        const progress = clamp(window.scrollY / (track.offsetHeight - window.innerHeight), 0, 1)
-        const zoom = smooth(0, 0.72, progress)
-        if (glassRef.current) {
-          glassRef.current.style.transform = `scale(${1 + 4.2 * zoom})`
-          glassRef.current.style.opacity = String(1 - smooth(0.5, 0.78, progress))
-        }
-        skylineRef.current?.setAttribute('transform', transform(1 + 0.12 * progress))
-        roadRef.current?.setAttribute('transform', transform(1 + 0.3 * progress))
-        buildingsRef.current?.setAttribute('transform', transform(1 + 0.7 * progress))
-        const blur = smooth(0.3, 0.7, progress) * 8
-        if (photoRef.current) {
-          photoRef.current.style.filter = `blur(${blur}px) saturate(${0.82 + blur / 40})`
-          photoRef.current.style.transform = `scale(${1 + 0.12 * progress})`
-        }
-        mphRef.current?.setAttribute('transform', `rotate(${-88 + 150 * smooth(0, 0.7, progress)} 405 700)`)
-        if (odoRef.current) odoRef.current.textContent = `${String(24817 + Math.round(progress * 12)).padStart(6, '0')} MI`
-        if (titleRef.current) titleRef.current.style.opacity = String(1 - smooth(0.02, 0.2, progress))
-        if (scrollRef.current) scrollRef.current.style.opacity = String(1 - smooth(0, 0.06, progress))
-        const reveal = smooth(0.68, 0.85, progress)
-        if (finishRef.current) {
-          finishRef.current.style.opacity = String(reveal)
-          finishRef.current.classList.toggle('on', reveal > 0.5)
-        }
-      })
-    }
-
-    window.addEventListener('scroll', update, { passive: true })
-    window.addEventListener('resize', update)
-    update()
-    const intro = reducedMotion() || !titleRef.current
-      ? null
-      : gsap.from(titleRef.current.children, { y: 46, autoAlpha: 0, duration: 1.2, ease: 'expo.out', stagger: 0.12, delay: 1.05 })
-
-    // live dashboard: engine idle, meter, radio, wipers, glare, mouse depth
-    let fare = 18.6
+  useLayoutEffect(() => {
+    const scene = sceneRef.current
+    const title = titleRef.current
+    const finish = finishRef.current
+    const glass = glassRef.current
+    if (!scene || !title || !finish || !glass) return
+    const still = reducedMotion()
     let meterTimer = 0
     let onMove: ((event: PointerEvent) => void) | null = null
-    const live = reducedMotion() ? null : gsap.context(() => {
-      gsap.to('.rpm-needle', { rotation: '+=12', svgOrigin: '554 700', duration: 2.8, repeat: -1, yoyo: true, ease: 'sine.inOut', delay: 1 })
+    let stopStreet = () => {}
+
+    const ctx = gsap.context(() => {
+      const heading = title.querySelector('h1')!
+      const accent = heading.querySelector('em')
+      const rest = gsap.utils.toArray<HTMLElement>('.eyebrow, p', title)
+      const finishSplit = SplitText.create(finish.querySelector('h2')!, { type: 'words', mask: 'words' })
+      const finishButtons = finish.querySelectorAll('.btn')
+
+      // Intro: words rise out of their own masks once the loader lifts.
+      if (!still) {
+        const split = SplitText.create(heading, { type: 'words', mask: 'words' })
+        gsap.set(split.words, { yPercent: 115 })
+        gsap.set(rest, { y: 18, autoAlpha: 0 })
+        introRef.current = gsap.timeline({ paused: true, delay: 0.15 })
+          .to(rest[0], { y: 0, autoAlpha: 1, duration: 0.8, ease: 'power3.out' })
+          .to(split.words, { yPercent: 0, duration: 1.15, ease: 'expo.out', stagger: 0.07 }, 0.1)
+          .to(accent, { '--ul': '100%', duration: 0.9, ease: 'power3.inOut' }, 0.75)
+          .to(rest.slice(1), { y: 0, autoAlpha: 1, duration: 0.9, ease: 'power3.out', stagger: 0.1 }, 0.6)
+        if (ready) introRef.current.play()
+      } else {
+        gsap.set(accent, { '--ul': '100%' })
+      }
+
+      // Scroll story: the cab pulls away, the title flies past the glass, then we pass through the windscreen.
+      gsap.set(finish, { autoAlpha: 0 })
+      gsap.set(finishSplit.words, { yPercent: 110 })
+      gsap.set(finishButtons, { y: 24, autoAlpha: 0 })
+      const story = gsap.timeline({
+        defaults: { ease: 'none' },
+        scrollTrigger: {
+          trigger: scene.parentElement,
+          start: 'top top',
+          end: 'bottom bottom',
+          scrub: still ? true : 0.6,
+          onUpdate: (self) => {
+            if (odoRef.current) odoRef.current.textContent = String(24817 + Math.round(self.progress * 12)).padStart(6, '0')
+            finish.classList.toggle('on', self.progress > 0.74)
+            setDashLive(self.progress < 0.4)
+          },
+        },
+      })
+      story.to(scrollRef.current!.querySelector('i b'), { scaleX: 1, duration: 0.72 }, 0)
+        .to(scrollRef.current!.querySelector('span'), { autoAlpha: 0, duration: 0.05 }, 0)
+        .to(scrollRef.current, { autoAlpha: 0, duration: 0.06 }, 0.68)
+        .to(mphRef.current, { rotation: angleFor(48, 120), svgOrigin: '405 700', duration: 0.7, ease: 'power1.inOut' }, 0)
+        .fromTo(photoRef.current, { scale: 1 }, { scale: 1.12, duration: 1 }, 0)
+        .fromTo(photoRef.current, { filter: 'blur(0px) saturate(0.82)' }, { filter: 'blur(8px) saturate(1.02)', duration: 0.4, ease: 'power1.inOut' }, 0.3)
+        .to(title, { autoAlpha: 0, duration: 0.16, ease: 'power1.in' }, 0.04)
+      if (still) {
+        story.to(glass, { opacity: 0, duration: 0.25 }, 0.4)
+      } else {
+        story.to(heading, { scale: 1.35, y: -30, filter: 'blur(10px)', duration: 0.2, ease: 'power2.in' }, 0.02)
+          .to(rest, { y: -24, duration: 0.16, stagger: 0.02, ease: 'power1.in' }, 0.02)
+          .fromTo(glass, { scale: 1 }, { scale: 5.2, duration: 0.72, ease: 'power2.inOut' }, 0)
+          .to(glass, { opacity: 0, duration: 0.28, ease: 'power1.in' }, 0.5)
+      }
+      story.to(finish, { autoAlpha: 1, duration: 0.08 }, 0.66)
+        .to(finishSplit.words, { yPercent: 0, duration: 0.14, stagger: 0.015, ease: 'power3.out' }, 0.68)
+        .to(finishButtons, { y: 0, autoAlpha: 1, duration: 0.1, stagger: 0.03, ease: 'power2.out' }, 0.78)
+
+      const eqBars = gsap.utils.toArray<SVGRectElement>('.eq rect')
+      eqBars.forEach((bar, index) => gsap.set(bar, { scaleY: 0.12, svgOrigin: `${1021 + index * 26 + 7.5} 764` }))
+      rainRef.current = createRain(scene)
+      rainRef.current.set(rain, still)
+      if (still) return
+
+      // Live dashboard: engine idle, meter, radio, wipers, glare, street, mouse depth.
+      gsap.set('.rpm-needle', { rotation: angleFor(0.8, 8), svgOrigin: '554 700' })
+      gsap.to('.rpm-needle', { rotation: '+=6', svgOrigin: '554 700', duration: 2.8, repeat: -1, yoyo: true, ease: 'sine.inOut', delay: 1 })
       gsap.to('.wheel', { rotation: 3.5, svgOrigin: '470 900', duration: 3.4, repeat: -1, yoyo: true, ease: 'sine.inOut' })
-      gsap.utils.toArray<SVGRectElement>('.eq rect').forEach((bar, index) => {
-        gsap.set(bar, { scaleY: 0.5, svgOrigin: `${1021 + index * 26 + 7.5} 764` })
-        gsap.to(bar, { scaleY: () => gsap.utils.random(0.18, 1), duration: () => gsap.utils.random(0.18, 0.4), repeat: -1, repeatRefresh: true, ease: 'power1.inOut', delay: index * 0.04 })
+      eqRef.current = eqBars.map((bar, index) => {
+        return gsap.to(bar, { scaleY: () => gsap.utils.random(0.18, 1), duration: () => gsap.utils.random(0.18, 0.4), repeat: -1, repeatRefresh: true, ease: 'power1.inOut', delay: index * 0.04, paused: true })
       })
       gsap.to('.audio-dot', { opacity: 0.25, duration: 0.6, repeat: -1, yoyo: true, ease: 'sine.inOut' })
-      const wipers = gsap.utils.toArray<SVGGElement>('.wiper')
-      const sweep = gsap.timeline({ repeat: -1, repeatDelay: 5.5, delay: 2.4 })
-      wipers.forEach((wiper, index) => {
-        const origin = index === 0 ? '520 556' : '930 556'
-        sweep.to(wiper, { rotation: 112, svgOrigin: origin, duration: 0.55, ease: 'sine.inOut' }, index * 0.06)
-          .to(wiper, { rotation: 0, svgOrigin: origin, duration: 0.6, ease: 'sine.inOut' }, 0.6 + index * 0.06)
-      })
       gsap.fromTo('.glare', { x: -700 }, { x: 1700, duration: 2.8, ease: 'power2.inOut', repeat: -1, repeatDelay: 4.5, delay: 1.6 })
+      wipersRef.current = createWipers(glass, (upstroke) => rainRef.current?.wipe(upstroke), (stroke) => playWiperSwish(stroke))
+      wipersRef.current.play(2.4)
+      wipersRef.current.setRain(rain)
+      stopStreet = animateStreet(glass)
 
       const photo = photoRef.current
-      const glass = stageRef.current
-      if (photo && glass && window.matchMedia('(pointer: fine)').matches) {
+      const stage = stageRef.current
+      if (photo && stage && window.matchMedia('(pointer: fine)').matches) {
         const depth = { px: 0, py: 0, gx: 0, gy: 0 }
         const apply = () => {
           photo.style.translate = `${depth.px}px ${depth.py}px`
-          glass.style.translate = `${depth.gx}px ${depth.gy}px`
+          stage.style.translate = `${depth.gx}px ${depth.gy}px`
         }
         onMove = (event: PointerEvent) => {
           const nx = event.clientX / window.innerWidth - 0.5
@@ -288,8 +468,8 @@ function CityScene({ ready }: { ready: boolean }) {
         }
         window.addEventListener('pointermove', onMove)
       }
-    })
-    if (live) {
+
+      let fare = 18.6
       meterTimer = window.setInterval(() => {
         fare += 0.7
         if (meterRef.current) {
@@ -297,22 +477,28 @@ function CityScene({ ready }: { ready: boolean }) {
           gsap.fromTo(meterRef.current, { opacity: 0.45 }, { opacity: 1, duration: 0.35, ease: 'power2.out' })
         }
       }, 1800)
-    }
+    }, scene)
+
     return () => {
-      intro?.revert()
-      live?.revert()
       window.clearInterval(meterTimer)
       if (onMove) window.removeEventListener('pointermove', onMove)
-      cancelAnimationFrame(frame)
-      window.removeEventListener('scroll', update)
-      window.removeEventListener('resize', update)
+      stopStreet()
+      wipersRef.current?.kill()
+      rainRef.current?.kill()
+      wipersRef.current = null
+      rainRef.current = null
+      introRef.current = null
+      eqRef.current = []
+      stopRainSound()
+      ctx.revert()
     }
   }, [])
 
   return (
     <div id="hw">
-      <div id="st">
+      <div id="st" ref={sceneRef}>
         <img ref={photoRef} id="scene" className="hero-photo" src="/nyc-street.png" alt="" />
+        <div id="rain-street" aria-hidden="true" />
         <svg id="scene-art" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
           <defs>
             <linearGradient id="sky" x1="0" y1="1" x2="0" y2="0">
@@ -328,7 +514,7 @@ function CityScene({ ready }: { ready: boolean }) {
               <rect x="5" y="6" width="8" height="12" fill="#ead39a" opacity=".6" />
             </pattern>
           </defs>
-          <g ref={skylineRef}>
+          <g>
             <rect width="1600" height="900" fill="url(#sky)" />
             <circle cx="800" cy="330" r="190" fill="#d0a469" opacity=".18" />
             <rect x="530" y="24" width="105" height="408" fill="#514b43" />
@@ -342,7 +528,7 @@ function CityScene({ ready }: { ready: boolean }) {
             <rect x="990" y="54" width="92" height="380" fill="#777367" />
             <rect x="990" y="54" width="92" height="380" fill="url(#windows)" opacity=".5" />
           </g>
-          <g ref={roadRef}>
+          <g>
             <polygon points="560,420 1040,420 1600,900 0,900" fill="url(#street)" />
             <polygon points="560,420 590,420 0,900 0,880" fill="#676a61" />
             <polygon points="1040,420 1010,420 1600,900 1600,880" fill="#676a61" />
@@ -358,7 +544,7 @@ function CityScene({ ready }: { ready: boolean }) {
               <rect x="6" y="-4" width="22" height="7" rx="2" fill="#b7c1b6" />
             </g>
           </g>
-          <g ref={buildingsRef}>
+          <g>
             <path d="M0 0H280L370 170V570L0 780Z" fill="#4a4b43" />
             <path d="M0 0H280L370 170V570L0 780Z" fill="url(#windows)" opacity=".42" />
             <path d="M1600 0H1320L1230 170V570L1600 780Z" fill="#484c43" />
@@ -369,7 +555,7 @@ function CityScene({ ready }: { ready: boolean }) {
             <path d="M1120 252L1010 300V430L1120 472Z" fill="#73705d" />
           </g>
         </svg>
- <div id="in-wrap" ref={stageRef}>
+        <div id="in-wrap" ref={stageRef}>
         <svg ref={glassRef} id="in" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
           <defs>
             <linearGradient id="dash" x1="0" y1="0" x2="0" y2="1">
@@ -396,6 +582,34 @@ function CityScene({ ready }: { ready: boolean }) {
               <feGaussianBlur stdDeviation="2.4" result="b" />
               <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
             </filter>
+            <linearGradient id="bezel" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#d9ddd2" />
+              <stop offset=".35" stopColor="#7d8478" />
+              <stop offset=".7" stopColor="#2c322e" />
+              <stop offset="1" stopColor="#8a9186" />
+            </linearGradient>
+            <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#3b433d" />
+              <stop offset=".2" stopColor="#222824" />
+              <stop offset="1" stopColor="#0d100f" />
+            </linearGradient>
+            <linearGradient id="rim-hi" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#c9cfc2" stopOpacity=".5" />
+              <stop offset=".18" stopColor="#c9cfc2" stopOpacity="0" />
+            </linearGradient>
+            <linearGradient id="spoke" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#5a6259" />
+              <stop offset=".5" stopColor="#262c28" />
+              <stop offset="1" stopColor="#141816" />
+            </linearGradient>
+            <radialGradient id="hub" cx=".5" cy=".3" r=".8">
+              <stop offset="0" stopColor="#2c332e" />
+              <stop offset="1" stopColor="#0f1311" />
+            </radialGradient>
+            <filter id="needle-glow" x="-50%" y="-20%" width="200%" height="140%">
+              <feGaussianBlur stdDeviation="1.6" result="b" />
+              <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
             <radialGradient id="gauge-face">
               <stop offset="0" stopColor="#202824" />
               <stop offset="1" stopColor="#080c0b" />
@@ -404,8 +618,9 @@ function CityScene({ ready }: { ready: boolean }) {
           <path fillRule="evenodd" fill="#121816" d="M0 0H1600V900H0ZM330 170H1270L1360 560H240Z" />
           <path d="M330 170 240 560M1270 170 1360 560" fill="none" stroke="#303632" strokeWidth="18" />
           <path d="M334 174 250 548M1266 174 1350 548" fill="none" stroke="#777d72" strokeOpacity=".6" strokeWidth="2" />
+          <StreetLife />
           <g className="dash">
-          <path d="M0 558C230 526 415 528 610 550C790 570 810 570 990 550C1185 528 1370 526 1600 558V900H0Z" fill="url(#dash)" />
+          <path d="M0 558C230 526 415 528 610 550C790 570 810 570 990 550C1185 528 1370 526 1600 558V1000H0Z" fill="url(#dash)" />
           <path d="M0 558C230 526 415 528 610 550C790 570 810 570 990 550C1185 528 1370 526 1600 558" fill="none" stroke="#929589" strokeOpacity=".48" strokeWidth="4" />
           <path d="M0 574C240 547 410 550 610 568M990 568C1190 550 1360 547 1600 574" fill="none" stroke="#090d0b" strokeWidth="8" />
           <path d="M800 158V186" stroke="#111613" strokeWidth="12" strokeLinecap="round" />
@@ -417,20 +632,10 @@ function CityScene({ ready }: { ready: boolean }) {
           <g>
             <rect x="278" y="612" width="390" height="194" rx="30" fill="#111614" stroke="#596159" strokeWidth="5" />
             <rect x="292" y="626" width="362" height="166" rx="22" fill="#080c0b" stroke="#242b26" strokeWidth="3" />
-            <circle cx="405" cy="700" r="63" fill="url(#gauge-face)" stroke="url(#metal)" strokeWidth="5" />
-            <circle cx="405" cy="700" r="49" fill="none" stroke="#697267" strokeOpacity=".55" strokeWidth="2" />
-            <path d="M369 660V671M388 649V662M422 649V662M441 660V671M357 686H369M441 686H453M363 724L374 718M436 718L447 724" stroke="#d1c58c" strokeWidth="3" strokeLinecap="round" />
-            <path ref={mphRef} d="M405 700 405 660" transform="rotate(-88 405 700)" stroke="#e6c165" strokeWidth="4" strokeLinecap="round" />
-            <circle cx="405" cy="700" r="6" fill="#d9b45a" />
-            <text x="405" y="745" textAnchor="middle" fontFamily="Manrope, sans-serif" fontWeight="700" fontSize="9" letterSpacing="1" fill="#c7c9bd">MPH</text>
-            <circle cx="554" cy="700" r="63" fill="url(#gauge-face)" stroke="url(#metal)" strokeWidth="5" />
-            <circle cx="554" cy="700" r="49" fill="none" stroke="#697267" strokeOpacity=".55" strokeWidth="2" />
-            <path d="M518 660V671M537 649V662M571 649V662M590 660V671M506 686H518M590 686H602M512 724L523 718M585 718L596 724" stroke="#d1c58c" strokeWidth="3" strokeLinecap="round" />
-            <path className="rpm-needle" d="M554 700 526 675" stroke="#e6c165" strokeWidth="4" strokeLinecap="round" />
-            <circle cx="554" cy="700" r="6" fill="#d9b45a" />
-            <text x="554" y="745" textAnchor="middle" fontFamily="Manrope, sans-serif" fontWeight="700" fontSize="9" letterSpacing="1" fill="#c7c9bd">RPM</text>
-            <rect x="449" y="758" width="110" height="22" rx="4" fill="#1b2b25" stroke="#48584a" strokeWidth="1.5" />
-            <text x="504" y="773" textAnchor="middle" fontFamily="monospace" fontWeight="600" fontSize="10" letterSpacing="1" fill="#ccd6ad" ref={odoRef}>024817 MI</text>
+            <Gauge cx={405} cy={700} max={120} major={20} minor={5} label="MPH" unit="" needleAngle={angleFor(0, 120)} needleRef={mphRef} />
+            <rect x="384" y="728" width="42" height="11" rx="2.5" fill="#0f1a16" stroke="#48584a" strokeWidth="1" />
+            <text x="405" y="736.5" textAnchor="middle" fontFamily="monospace" fontWeight="600" fontSize="7.5" letterSpacing=".5" fill="#ccd6ad" ref={odoRef}>024817</text>
+            <Gauge cx={554} cy={700} max={8} major={1} minor={0.5} label="RPM" unit="× 1000" redFrom={6} needleAngle={angleFor(0.8, 8)} needleClass="rpm-needle" />
           </g>
 
           <g>
@@ -460,8 +665,7 @@ function CityScene({ ready }: { ready: boolean }) {
             <rect x="765" y="689" width="458" height="103" rx="9" fill="url(#radio-screen)" stroke="#080b0a" strokeWidth="4" />
             <path d="M780 704H1207" stroke="#829080" strokeOpacity=".25" strokeWidth="1" />
             <text x="787" y="716" fontFamily="Manrope, sans-serif" fontWeight="700" fontSize="9" letterSpacing="2" fill="#c4c7b5">CITY RADIO</text>
-            <text x="787" y="757" fontFamily="Manrope, sans-serif" fontWeight="700" fontSize="28" fill="#e1d18f">FM 101.1</text>
-            <text x="787" y="778" fontFamily="Manrope, sans-serif" fontWeight="500" fontSize="10" letterSpacing="1" fill="#a7b3a5">NEW YORK · LIVE TRAFFIC</text>
+            <RadioDisplay state={radio} />
             <g className="eq" fill="#a9bd9f" opacity=".85" filter="url(#led)">
               {[1021, 1047, 1073, 1099, 1125, 1151, 1177].map((x, index) => (
                 <rect key={x} x={x} y={724} width="15" height="40" rx="1.5" opacity={0.55 + index * 0.05} />
@@ -469,8 +673,7 @@ function CityScene({ ready }: { ready: boolean }) {
             </g>
             <circle className="audio-dot" cx="790" cy="807" r="5" fill="#d9b45a" />
             <text x="807" y="811" fontFamily="Manrope, sans-serif" fontWeight="600" fontSize="8" letterSpacing="1" fill="#aeb4a8">AUDIO</text>
-            <circle cx="1164" cy="807" r="10" fill="#262d29" stroke="#879083" strokeWidth="2" />
-            <circle cx="1200" cy="807" r="10" fill="#262d29" stroke="#879083" strokeWidth="2" />
+            <RadioButtons state={radio} live={dashLive} onPower={() => radioRef.current?.power()} onNext={() => radioRef.current?.next()} />
           </g>
 
           <g>
@@ -490,34 +693,32 @@ function CityScene({ ready }: { ready: boolean }) {
           <path d="M1265 730Q1380 714 1510 740V830Q1370 812 1265 840Z" fill="#171c19" stroke="#39413a" strokeWidth="3" />
           <path d="M1300 752Q1380 740 1470 755" fill="none" stroke="#62695f" strokeOpacity=".55" strokeWidth="2" />
           <g className="wheel">
-            <ellipse cx="470" cy="905" rx="150" ry="124" fill="none" stroke="#090d0c" strokeWidth="28" />
-            <ellipse cx="470" cy="905" rx="150" ry="124" fill="none" stroke="#59615a" strokeWidth="7" />
-            <path d="M470 786V880M350 856 447 900M590 856 493 900" fill="none" stroke="#252c28" strokeWidth="20" strokeLinecap="round" />
-            <path d="M470 794V879M359 858 449 899M581 858 491 899" fill="none" stroke="#71786d" strokeOpacity=".65" strokeWidth="3" strokeLinecap="round" />
-            <circle cx="470" cy="900" r="31" fill="#141916" stroke="url(#metal)" strokeWidth="5" />
-            <circle cx="470" cy="900" r="17" fill="#2d342e" />
-            <text x="470" y="904" textAnchor="middle" fontFamily="DM Serif Display, serif" fontWeight="700" fontSize="13" fill="#d9b45a">T</text>
+            <ellipse cx="470" cy="905" rx="150" ry="124" fill="none" stroke="#050706" strokeWidth="38" />
+            <ellipse cx="470" cy="905" rx="150" ry="124" fill="none" stroke="url(#rim)" strokeWidth="28" />
+            <ellipse cx="470" cy="905" rx="150" ry="124" fill="none" stroke="#7d857a" strokeOpacity=".4" strokeWidth="1.2" strokeDasharray="3 5" />
+            <ellipse cx="470" cy="905" rx="163" ry="137" fill="none" stroke="url(#rim-hi)" strokeWidth="2.5" />
+            <path d="M326 868Q330 846 344 832L362 846Q350 858 348 874Z M614 868Q610 846 596 832L578 846Q590 858 592 874Z" fill="#0e1210" opacity=".9" />
+            <path d="M334 876 426 884 428 914 334 906Z" fill="url(#spoke)" stroke="#0a0d0c" strokeWidth="2" strokeLinejoin="round" />
+            <path d="M606 876 514 884 512 914 606 906Z" fill="url(#spoke)" stroke="#0a0d0c" strokeWidth="2" strokeLinejoin="round" />
+            <path d="M340 880 424 887M600 880 516 887" stroke="#9aa294" strokeOpacity=".35" strokeWidth="1.5" strokeLinecap="round" />
+            <rect x="404" y="858" width="132" height="86" rx="30" fill="#0c100e" stroke="url(#bezel)" strokeWidth="3" />
+            <rect x="414" y="866" width="112" height="70" rx="24" fill="url(#hub)" />
+            <path d="M428 874Q470 866 512 874" fill="none" stroke="#fff" strokeOpacity=".08" strokeWidth="5" strokeLinecap="round" />
+            <rect x="451" y="878" width="38" height="14" rx="4" fill="#d9b45a" />
+            <text x="470" y="888.5" textAnchor="middle" fontFamily="Manrope, sans-serif" fontWeight="800" fontSize="8" letterSpacing="1" fill="#1c1e18">TAXI</text>
           </g>
           </g>
           <path d="M420 180H560L330 560H240Z" fill="#fff" opacity=".045" />
           <g clipPath="url(#windscreen)">
             <rect className="glare" x="0" y="160" width="260" height="420" fill="url(#glare-grad)" transform="skewX(-18)" />
-            <g className="wiper">
-              <path d="M520 556H150" stroke="#0b0f0d" strokeWidth="7" strokeLinecap="round" />
-              <path d="M490 552H170" stroke="#2a312c" strokeWidth="3" strokeLinecap="round" />
-            </g>
-            <g className="wiper">
-              <path d="M930 556H560" stroke="#0b0f0d" strokeWidth="7" strokeLinecap="round" />
-              <path d="M900 552H580" stroke="#2a312c" strokeWidth="3" strokeLinecap="round" />
-            </g>
           </g>
-          <circle cx="520" cy="556" r="9" fill="#1a1f1c" stroke="#4d554e" strokeWidth="2" />
-          <circle cx="930" cy="556" r="9" fill="#1a1f1c" stroke="#4d554e" strokeWidth="2" />
+          <RainGlass />
+          <Wipers />
         </svg>
         </div>
         <div id="ht" ref={titleRef}>
           <span className="eyebrow">New York City · trip intelligence</span>
-          <h1>Know the Fares<br />before you ride.</h1>
+          <h1>Know the <em>Fares</em><br />before you ride.</h1>
           <p>Real trip records. Two carefully calibrated estimates.</p>
         </div>
         <div id="fin" ref={finishRef}>
@@ -527,16 +728,25 @@ function CityScene({ ready }: { ready: boolean }) {
             <a className="btn s" href="#docs">Explore the method</a>
           </div>
         </div>
-        <div className="sc" id="scr" ref={scrollRef}>Scroll to explore <span>↓</span></div>
-        <button type="button" className={`sound-btn${soundOn ? ' on' : ''}`} onClick={toggleSound} aria-pressed={soundOn} aria-label={soundOn ? 'Turn engine sound off' : 'Turn engine sound on'}>
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor" />
-            {soundOn
-              ? <path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-              : <path d="M16 9.5l5 5M21 9.5l-5 5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />}
-          </svg>
-          <span>{soundOn ? 'Engine sound on' : 'Sound off'}</span>
-        </button>
+        <div className="sc" id="scr" ref={scrollRef} aria-hidden="true"><small>Scroll to ride</small> <i><b /></i> <span>↓</span></div>
+        <div className="hero-ctl">
+          <button type="button" className={`sound-btn${soundOn ? ' on' : ''}`} onClick={toggleSound} aria-pressed={soundOn} aria-label={soundOn ? 'Turn engine sound off' : 'Turn engine sound on'}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor" />
+              {soundOn
+                ? <path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                : <path d="M16 9.5l5 5M21 9.5l-5 5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />}
+            </svg>
+            <span>{soundOn ? 'Engine sound on' : 'Sound off'}</span>
+          </button>
+          <button type="button" className={`sound-btn${rain ? ' on' : ''}`} onClick={toggleRain} aria-pressed={rain} aria-label={rain ? 'Stop the rain' : 'Make it rain'}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7 15.5a4 4 0 0 1-.4-8 5.5 5.5 0 0 1 10.6 1.3A3.4 3.4 0 0 1 17 15.5z" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+              {rain && <path d="M9 18l-1 2.5M13 18l-1 2.5M17 18l-1 2.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />}
+            </svg>
+            <span>{rain ? 'Rain on' : 'Rain'}</span>
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -578,74 +788,6 @@ function FeatureCards() {
       </div>
       <a className="text-link" data-reveal href="#model">Open the trip estimator <span aria-hidden="true">→</span></a>
     </section>
-  )
-}
-
-function DocsPage() {
-  const sectionRef = useRef<HTMLDivElement>(null)
-  const [active, setActive] = useState('overview')
-  const sections = useMemo(() => [
-    { id: 'overview', label: 'Overview', title: 'What the estimate means', body: 'The service returns a trip-duration estimate and a metered-fare estimate. Duration is predicted first; its output is then passed into the fare model.' },
-    { id: 'data', label: 'Data', title: 'Built from NYC TLC records', body: 'The models were trained on 2025 Yellow and Green taxi records. Location is represented by TLC taxi zones rather than precise addresses.' },
-    { id: 'pipeline', label: 'Pipeline', title: 'Two stages, in sequence', body: 'Stage one uses pre-trip time, route, zone geometry, calendar and historical route features. Stage two combines those features with the predicted duration.' },
-    { id: 'inputs', label: 'Inputs', title: 'Only what is known before pickup', body: 'The model does not use actual trip distance, drop-off timestamp, tolls or other post-trip information. Weather features use the project’s seasonal baseline.' },
-    { id: 'limits', label: 'Limits', title: 'An estimate, not a quote', body: 'Zone-centroid routes cannot capture the route actually driven. Fare predictions exclude tips, tolls and surcharges; treat the displayed ranges as guidance.' },
-  ], [])
-
-  const headingRef = useRef<HTMLDivElement>(null)
-  useEffect(() => (headingRef.current ? revealOnScroll(headingRef.current) : undefined), [])
-
-  useEffect(() => {
-    const root = sectionRef.current
-    if (!root) return
-    const reveal = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('in')
-          setActive((entry.target as HTMLElement).id)
-        }
-      })
-    }, { threshold: 0.3 })
-    root.querySelectorAll('.doc-section').forEach((section) => reveal.observe(section))
-    return () => reveal.disconnect()
-  }, [])
-
-  return (
-    <main id="docs" className="docs-page">
-      <div className="docs-heading" ref={headingRef}>
-        <span className="eyebrow" data-reveal>MODEL NOTES · NYC TLC 2025</span>
-        <h1 data-reveal>Built for a better<br />informed ride.</h1>
-        <p data-reveal>A transparent look at the data, the two-stage pipeline and what the numbers do—and do not—say.</p>
-      </div>
-      <div className="dw">
-        <aside className="fc">
-          <small>ON THIS PAGE</small>
-          <ol>{sections.map((section) => <li key={section.id}><button type="button" className={active === section.id ? 'on' : ''} onClick={() => { const target = document.getElementById(section.id); if (target) scrollToElement(target) }}>{section.label}</button></li>)}</ol>
-        </aside>
-        <div className="dc" ref={sectionRef}>
-          {sections.map((section, index) => (
-            <section id={section.id} className="doc-section" key={section.id}>
-              <span className="eyebrow">{String(index + 1).padStart(2, '0')} / {section.label.toUpperCase()}</span>
-              <h2><span className="hm"><span>{section.title}</span></span></h2>
-              <p>{section.body}</p>
-              {section.id === 'pipeline' && <PipelineGraphic />}
-            </section>
-          ))}
-        </div>
-      </div>
-    </main>
-  )
-}
-
-function PipelineGraphic() {
-  return (
-    <div className="fg">
-      <div className="pipeline-node"><small>PRE-TRIP FEATURES</small><strong>Route · Time · Zone</strong></div>
-      <span className="pipeline-arrow" aria-hidden="true">→</span>
-      <div className="pipeline-node duration"><small>STAGE 01</small><strong>Trip duration</strong></div>
-      <span className="pipeline-arrow" aria-hidden="true">→</span>
-      <div className="pipeline-node fare"><small>STAGE 02</small><strong>Metered fare</strong></div>
-    </div>
   )
 }
 
@@ -706,7 +848,7 @@ function App() {
       <Navigation page={page} />
       {page === 'home' && <HomePage ready={!loading} />}
       {page === 'model' && <EstimatorPage zones={zones} zoneError={zoneError} />}
-      {page === 'docs' && <DocsPage />}
+      {page === 'docs' && <MethodologyPage />}
       {page !== 'model' && <footer>NYC TLC 2025 data <span>·</span> two-stage LightGBM <span>·</span> Estimates are not fare quotes</footer>}
     </>
   )

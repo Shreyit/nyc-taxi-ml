@@ -4,7 +4,7 @@
 let context: AudioContext | null = null
 let lastStart = -10
 
-function audioContext() {
+export function audioContext() {
   const AudioCtor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
   if (!AudioCtor) return null
   context ??= new AudioCtor()

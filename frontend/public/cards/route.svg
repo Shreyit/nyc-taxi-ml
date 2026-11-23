@@ -16,5 +16,4 @@
   <path d="M430 470C500 420 520 360 610 330S720 210 790 150" fill="none" stroke="#d9b45a" stroke-width="7" stroke-linecap="round" stroke-dasharray="16 12"/>
   <g transform="translate(430 470)"><circle r="20" fill="#537a64" opacity=".25"/><circle r="10" fill="#537a64" stroke="#fff" stroke-width="4"/></g>
   <g transform="translate(790 150)"><circle r="20" fill="#a8644d" opacity=".25"/><circle r="10" fill="#a8644d" stroke="#fff" stroke-width="4"/></g>
-  <rect width="900" height="600" fill="url(#fade)"/>
 </svg>

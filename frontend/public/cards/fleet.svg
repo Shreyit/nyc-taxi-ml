@@ -18,5 +18,4 @@
   <path d="M0 520H900" stroke="#f4efe6" stroke-width="6" stroke-dasharray="44 30"/>
   <use href="#cab" transform="translate(360 330) scale(1.15)" fill="#d9b45a"/>
   <use href="#cab" transform="translate(560 390) scale(1.15)" fill="#6f9a7d"/>
-  <rect width="900" height="600" fill="url(#fade)"/>
 </svg>
