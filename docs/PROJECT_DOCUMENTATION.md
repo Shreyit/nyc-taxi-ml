@@ -394,13 +394,13 @@ Open the Vite URL (normally `http://localhost:5173`). Vite proxies `/api` to
 
 ### Deployment to Vercel
 
-The repository is configured as one Vercel project using Vercel Services
-(currently Beta). The root [`vercel.json`](../vercel.json) defines two service
-roots: `frontend/` for the Vite app and the repository root for FastAPI, with
-`api.main:app` as its entrypoint. Rewrites send `/api/*` requests to FastAPI
-and all other paths to the frontend. The frontend uses relative `/api/...`
-requests, so `VITE_API_BASE_URL` should remain blank for this same-origin
-deployment.
+The repository is configured as one Vercel project using Vercel Services and
+the Container Runtime (both currently Beta). The root
+[`vercel.json`](../vercel.json) defines two service roots: `frontend/` for the
+Vite app and the repository root for the FastAPI container. Rewrites send
+`/api/*` requests to FastAPI and all other paths to the frontend. The frontend
+uses relative `/api/...` requests, so `VITE_API_BASE_URL` should remain blank
+for this same-origin deployment.
 
 The project root in Vercel must remain the repository root. Link and deploy
 from the repository root with the Vercel CLI:
@@ -412,20 +412,23 @@ npx vercel@latest
 npx vercel@latest --prod
 ```
 
-The base Python dependencies in `pyproject.toml` are limited to serving
-requirements. Notebook and model-training packages are in the `analysis`
-optional extra and are not installed into the Vercel backend. The backend
-service configuration explicitly bundles `outputs/models/` and
-`outputs/lookup/`, which the predictor loads at startup; raw TLC files and the
-notebook are not needed.
+The root [`Dockerfile`](../Dockerfile) builds the backend container using
+Python 3.14 and installs the Linux `libgomp1` shared library required by
+LightGBM. The base Python dependencies in `pyproject.toml` are limited to
+serving requirements. Notebook and model-training packages are in the
+`analysis` optional extra and are not installed into the Vercel backend. The
+Docker build copies only `api/`, `src/`, `outputs/models/`, and
+`outputs/lookup/`; raw TLC files and the notebook are not needed.
 
-Vercel supports Python 3.14, matching the project's `requires-python`.
-Standard Python function bundles are limited to 500 MB, so check the first
-deployment's build logs for the final bundle size and runtime initialization
-errors. Same-origin requests do not need CORS. If deploying the frontend and
-API on different domains instead, set `VITE_API_BASE_URL` to the API origin and
+Same-origin requests do not need CORS. If deploying the frontend and API on
+different domains instead, set `VITE_API_BASE_URL` to the API origin and
 configure the API's comma-separated `CORS_ORIGINS` allowlist. Never put secrets
 in `VITE_*` variables; they are public build-time values.
+
+The container runtime is used because the standard Vercel Python runtime
+failed to load LightGBM's native library (`libgomp.so.1`). The container
+installs this OS dependency explicitly. Check deployment build/runtime logs,
+then verify `/api/health`, `/api/zones`, and a full prediction request.
 
 ---
 
@@ -445,4 +448,5 @@ in `VITE_*` variables; they are public build-time values.
 | **D-10** | Map rendering | React-Leaflet with OpenStreetMap tiles and attribution | Realistic basemap; the displayed endpoint line is explicitly a centroid preview, not road routing. |
 | **D-11** | Estimator interaction | Four-step wizard with final-step-only prediction | Required trip inputs are collected in sequence; predictions are requested only after confirmation. |
 | **D-12** | Frontend/API deployment | Use Vercel Services to route Vite and FastAPI from one project and origin | API stays on Vercel; same-origin requests avoid a separate API host and CORS setup. |
-| **D-13** | Vercel Python bundle size | Keep serving dependencies in the base project dependencies and analysis tools in an optional extra | Avoid shipping notebook/training packages with the FastAPI function. |
+| **D-13** | Backend dependency size | Keep serving dependencies in the base project dependencies and analysis tools in an optional extra | Avoid shipping notebook/training packages with the FastAPI container. |
+| **D-14** | LightGBM native runtime on Vercel | Run the API in a container with `libgomp1` installed | Resolves the missing `libgomp.so.1` error from the standard Python function runtime. |

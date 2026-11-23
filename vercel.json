@@ -6,12 +6,8 @@
     },
     "backend": {
       "root": ".",
-      "entrypoint": "api.main:app",
-      "functions": {
-        "api/main.py": {
-          "includeFiles": "{outputs/models/**,outputs/lookup/**}"
-        }
-      }
+      "runtime": "container",
+      "entrypoint": "Dockerfile"
     }
   },
   "rewrites": [

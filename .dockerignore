@@ -1,0 +1,17 @@
+.git/
+.vercel/
+.venv/
+data/raw/
+data/processed/
+frontend/node_modules/
+notebooks/
+.agents/
+.claude/
+.vscode/
+.env*
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.pytest_cache/
+logs/
+*.log

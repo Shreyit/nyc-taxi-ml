@@ -206,12 +206,14 @@ airport fees, and other surcharges.
 ### Deployment
 
 This repository is configured for one Vercel project using **Vercel Services**
-(currently Beta): the Vite frontend handles `/`, and FastAPI handles `/api/*`.
-The Vercel configuration is in [`vercel.json`](vercel.json). The backend uses
-the lean runtime dependencies in `pyproject.toml`; research/notebook packages
-are in the `analysis` extra. `outputs/models/` and `outputs/lookup/` are
-explicitly included in the Python function bundle. Raw trip downloads are not
-required.
+and the **Container Runtime** (both currently Beta): the Vite frontend handles
+`/`, and a Dockerized FastAPI service handles `/api/*`. The Vercel routing is
+in [`vercel.json`](vercel.json); [`Dockerfile`](Dockerfile) installs the Linux
+OpenMP runtime required by LightGBM and copies only the API, serving code, and
+model/lookup artifacts. Research and notebook packages are in the `analysis`
+extra. [`.dockerignore`](.dockerignore) and [`.vercelignore`](.vercelignore)
+keep local datasets and environments out of build/deploy uploads. Raw trip
+downloads are not required.
 
 From the repository root, install the Vercel CLI and link this checkout to the
 project (the CLI prompts for authentication and project selection):
@@ -229,11 +231,11 @@ npx vercel@latest --prod
 ```
 
 Keep the Vercel project root at the repository root so it can read
-`vercel.json`, `pyproject.toml`, `api/`, and the model artifacts. Do not set the
-root to `frontend/`; the services configuration selects `frontend/` and the
-FastAPI entrypoint separately. Leave `VITE_API_BASE_URL` blank: both services
-share the Vercel origin, and the frontend calls `/api/...` through the service
-rewrite. The local Vite proxy remains configured for development.
+`vercel.json`, the root `Dockerfile`, and frontend/API sources. Do not set the
+root to `frontend/`; the services configuration selects each service root.
+Leave `VITE_API_BASE_URL` blank: both services share the Vercel origin, and
+the frontend calls `/api/...` through the service rewrite. The local Vite proxy
+remains configured for development.
 
 After deployment, verify `https://<deployment>/api/health` returns
 `{"status":"ok"}`, `https://<deployment>/api/zones` returns the taxi-zone list,
@@ -242,10 +244,10 @@ do not require CORS configuration. If you later split the services across
 domains, set `VITE_API_BASE_URL` to the API origin and configure the API's
 `CORS_ORIGINS` allowlist.
 
-The project requires Python 3.14+ (supported by Vercel). Vercel's standard
-Python function bundle limit is 500 MB; the API dependency set is minimized
-for deployment, but the first deployment should still be checked for bundle
-size and function startup/memory errors. Vercel Services is currently Beta.
+The backend container uses Python 3.14 and installs the Linux `libgomp1`
+runtime required by LightGBM. Vercel Services and the Container Runtime are
+currently Beta. Check the first deployment's build/runtime logs and verify the
+health and prediction endpoints before sharing the production URL.
 
 ### Checks
 
