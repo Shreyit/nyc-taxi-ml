@@ -29,12 +29,12 @@ export function InteriorDefs() {
 
 // Headliner and A-pillars: woven fabric grain and a soft falloff toward the corners.
 export function HeadlinerTexture() {
-  const frame = 'M0 0H1600V900H0ZM330 170H1270L1360 560H240Z'
+  const frame = 'M0 0H1600V900H0ZM240 170H1360L1480 560H120Z'
   return (
     <g aria-hidden="true">
       <path fillRule="evenodd" d={frame} fill="url(#tex-fabric)" opacity=".3" />
       <path fillRule="evenodd" d={frame} fill="url(#cabin-shade)" />
-      <path d="M318 178 232 548M1282 178 1368 548" fill="none" stroke="#000" strokeOpacity=".35" strokeWidth="5" />
+      <path d="M228 178 112 548M1372 178 1488 548" fill="none" stroke="#000" strokeOpacity=".35" strokeWidth="5" />
     </g>
   )
 }

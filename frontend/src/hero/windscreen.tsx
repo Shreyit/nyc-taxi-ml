@@ -1,6 +1,6 @@
 // The glass itself: ceramic frit border, shade band, mirror-mount patch, dust that the wipers have cleared,
 // a faint reflection of the dashboard, and a TLC sticker seen from the back.
-const GLASS = 'M330 170H1270L1360 560H240Z'
+const GLASS = 'M240 170H1360L1480 560H120Z'
 const PIVOT_Y = 556
 
 const wipedSector = (px: number, inner = 138, outer = 384, sweep = 112) => {
@@ -28,7 +28,7 @@ export function WindscreenGlass() {
           <stop offset="0" stopColor="#1d4846" stopOpacity=".55" />
           <stop offset="1" stopColor="#1d4846" stopOpacity="0" />
         </linearGradient>
-        <linearGradient id="glass-curve" x1="240" y1="0" x2="1360" y2="0" gradientUnits="userSpaceOnUse">
+        <linearGradient id="glass-curve" x1="120" y1="0" x2="1480" y2="0" gradientUnits="userSpaceOnUse">
           <stop offset="0" stopColor="#000" stopOpacity=".28" />
           <stop offset=".14" stopColor="#000" stopOpacity="0" />
           <stop offset=".86" stopColor="#000" stopOpacity="0" />
@@ -61,7 +61,7 @@ export function WindscreenGlass() {
         <path d="M752 170H848L838 204Q800 214 762 204Z" fill="#070908" />
         <path d="M740 170H860L846 214Q800 226 754 214Z" fill="url(#frit-dots-l)" />
         <rect x="782" y="186" width="36" height="12" rx="3" fill="#121614" stroke="#2a312c" />
-        <g transform="translate(1262 492) rotate(-2)">
+        <g transform="translate(1377 492) rotate(-2)">
           <rect width="44" height="30" rx="3" fill="#cfcabb" opacity=".72" />
           <path d="M6 9H38M6 15H30M6 21H34" stroke="#8d897c" strokeWidth="1.6" strokeLinecap="round" opacity=".7" />
         </g>

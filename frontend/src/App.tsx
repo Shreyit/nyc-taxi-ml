@@ -131,7 +131,7 @@ function Navigation({ page }: { page: Page }) {
     if (reducedMotion()) return
     const ctx = gsap.context(() => {
       gsap.from(navRef.current, { y: -32, autoAlpha: 0, duration: 1, ease: 'expo.out', delay: 0.2 })
-      gsap.from('.brand, .nav-links a, .nav-cta', { y: -12, autoAlpha: 0, duration: 0.8, ease: 'expo.out', stagger: 0.07, delay: 0.35 })
+      gsap.from('.brand, .nav-links a', { y: -12, autoAlpha: 0, duration: 0.8, ease: 'expo.out', stagger: 0.07, delay: 0.35 })
     }, navRef)
     return () => ctx.revert()
   }, [])
@@ -213,7 +213,6 @@ function Navigation({ page }: { page: Page }) {
           >{label}</a>
         ))}
       </div>
-      {page !== 'model' && <a className="nav-cta" href="#model">Estimate a trip <span aria-hidden="true">→</span></a>}
       <span className="nav-progress" ref={progressRef} aria-hidden="true" />
     </nav>
   )
@@ -375,6 +374,8 @@ function CityScene({ ready }: { ready: boolean }) {
     let stopStreet = () => {}
 
     const ctx = gsap.context(() => {
+      gsap.set(mphRef.current, { rotation: angleFor(0, 120), svgOrigin: '405 700' })
+      const setSpeed = gsap.quickSetter(mphRef.current, 'rotation', 'deg')
       const heading = title.querySelector('h1')!
       const accent = heading.querySelector('em')
       const rest = gsap.utils.toArray<HTMLElement>('.eyebrow, p', title)
@@ -409,15 +410,14 @@ function CityScene({ ready }: { ready: boolean }) {
           scrub: still ? true : 0.6,
           onUpdate: (self) => {
             if (odoRef.current) odoRef.current.textContent = String(24817 + Math.round(self.progress * 12)).padStart(6, '0')
+            setSpeed(angleFor(self.progress * 120, 120))
             finish.classList.toggle('on', self.progress > 0.74)
             setDashLive(self.progress < 0.4)
           },
         },
       })
       story.to(scrollRef.current!.querySelector('i b'), { scaleX: 1, duration: 0.72 }, 0)
-        .to(scrollRef.current!.querySelector('span'), { autoAlpha: 0, duration: 0.05 }, 0)
         .to(scrollRef.current, { autoAlpha: 0, duration: 0.06 }, 0.68)
-        .to(mphRef.current, { rotation: angleFor(48, 120), svgOrigin: '405 700', duration: 0.7, ease: 'power1.inOut' }, 0)
         .fromTo(photoRef.current, { scale: 1 }, { scale: 1.12, duration: 1 }, 0)
         .fromTo(photoRef.current, { filter: 'blur(0px) saturate(0.82)' }, { filter: 'blur(8px) saturate(1.02)', duration: 0.4, ease: 'power1.inOut' }, 0.3)
         .to(title, { autoAlpha: 0, duration: 0.16, ease: 'power1.in' }, 0.04)
@@ -497,7 +497,7 @@ function CityScene({ ready }: { ready: boolean }) {
   return (
     <div id="hw">
       <div id="st" ref={sceneRef}>
-        <img ref={photoRef} id="scene" className="hero-photo" src="/nyc-street.png" alt="" />
+        <img ref={photoRef} id="scene" className="hero-photo" src="/hero/nyc-crossing.png" alt="A yellow taxi crossing a New York City street" />
         <div id="rain-street" aria-hidden="true" />
         <svg id="scene-art" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
           <defs>
@@ -573,7 +573,7 @@ function CityScene({ ready }: { ready: boolean }) {
               <stop offset="0" stopColor="#1d302d" />
               <stop offset="1" stopColor="#0b1716" />
             </linearGradient>
-            <clipPath id="windscreen"><path d="M330 170H1270L1360 560H240Z" /></clipPath>
+            <clipPath id="windscreen"><path d="M240 170H1360L1480 560H120Z" /></clipPath>
             <linearGradient id="glare-grad" x1="0" y1="0" x2="1" y2="0">
               <stop offset="0" stopColor="#fff" stopOpacity="0" />
               <stop offset=".5" stopColor="#fff" stopOpacity=".09" />
@@ -616,10 +616,10 @@ function CityScene({ ready }: { ready: boolean }) {
               <stop offset="1" stopColor="#080c0b" />
             </radialGradient>
           </defs>
-          <path fillRule="evenodd" fill="#121816" d="M0 0H1600V900H0ZM330 170H1270L1360 560H240Z" />
+          <path fillRule="evenodd" fill="#121816" d="M0 0H1600V900H0ZM240 170H1360L1480 560H120Z" />
           <HeadlinerTexture />
-          <path d="M330 170 240 560M1270 170 1360 560" fill="none" stroke="#303632" strokeWidth="18" />
-          <path d="M334 174 250 548M1266 174 1350 548" fill="none" stroke="#777d72" strokeOpacity=".6" strokeWidth="2" />
+          <path d="M240 170 120 560M1360 170 1480 560" fill="none" stroke="#303632" strokeWidth="18" />
+          <path d="M244 174 130 548M1356 174 1470 548" fill="none" stroke="#777d72" strokeOpacity=".6" strokeWidth="2" />
           <StreetLife />
           <WindscreenGlass />
           <g className="dash">
@@ -637,7 +637,7 @@ function CityScene({ ready }: { ready: boolean }) {
             <rect x="278" y="612" width="390" height="194" rx="30" fill="#111614" stroke="#596159" strokeWidth="5" />
             <PanelGrain x={278} y={612} width={390} height={194} rx={30} />
             <rect x="292" y="626" width="362" height="166" rx="22" fill="#080c0b" stroke="#242b26" strokeWidth="3" />
-            <Gauge cx={405} cy={700} max={120} major={20} minor={5} label="MPH" unit="" needleAngle={angleFor(0, 120)} needleRef={mphRef} />
+            <Gauge cx={405} cy={700} max={120} major={20} minor={5} label="MPH" unit="" needleAngle={angleFor(0, 120)} needleRef={mphRef} needleClass="mph-needle" />
             <rect x="384" y="728" width="42" height="11" rx="2.5" fill="#0f1a16" stroke="#48584a" strokeWidth="1" />
             <text x="405" y="736.5" textAnchor="middle" fontFamily="monospace" fontWeight="600" fontSize="7.5" letterSpacing=".5" fill="#ccd6ad" ref={odoRef}>024817</text>
             <Gauge cx={554} cy={700} max={8} major={1} minor={0.5} label="RPM" unit="× 1000" redFrom={6} needleAngle={angleFor(0.8, 8)} needleClass="rpm-needle" />
@@ -729,7 +729,7 @@ function CityScene({ ready }: { ready: boolean }) {
           <span className="eyebrow">New York City · trip intelligence</span>
           <h1>Know the <em>Fares</em><br />before you ride.</h1>
           <p>Real trip records. Two carefully calibrated estimates.</p>
-          <div className="sc" id="scr" ref={scrollRef} aria-hidden="true"><small>Scroll to ride</small> <i><b /></i> <span>↓</span></div>
+          <div className="sc" id="scr" ref={scrollRef} aria-hidden="true"><small>Scroll to ride</small> <i><b /></i></div>
           </div>
         <div id="fin" ref={finishRef}>
           <h2>Every ride has<br />a clearer picture.</h2>
