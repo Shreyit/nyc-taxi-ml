@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import 'leaflet/dist/leaflet.css'
 import { AttributionControl, CircleMarker, MapContainer, Polyline, TileLayer, Tooltip, useMap } from 'react-leaflet'
 import { getPrediction } from './api'
@@ -9,6 +9,63 @@ type Step = 0 | 1 | 2 | 3
 function localDate() {
   const now = new Date()
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
+
+const STEP_LABELS = ['Route', 'Departure', 'Fleet', 'Estimate'] as const
+
+const PRESETS: [string, string, string][] = [
+  ['JFK → Times Sq', 'JFK Airport', 'Times Sq/Theatre District'],
+  ['LGA → Midtown', 'LaGuardia Airport', 'Midtown Center'],
+  ['Penn → SoHo', 'Penn Station/Madison Sq West', 'SoHo'],
+  ['UES → FiDi', 'Upper East Side North', 'Financial District South'],
+  ['Central Park → SoHo', 'Central Park', 'SoHo'],
+  ['Brooklyn Hts → Times Sq', 'Brooklyn Heights', 'Times Sq/Theatre District'],
+  ['Downtown BK → JFK', 'Downtown Brooklyn/MetroTech', 'JFK Airport'],
+  ['Penn → Central Park', 'Penn Station/Madison Sq West', 'Central Park'],
+]
+
+const TIME_PRESETS: [string, string][] = [
+  ['Morning rush', '08:00'],
+  ['Midday', '13:00'],
+  ['Evening rush', '18:00'],
+  ['Late night', '02:00'],
+]
+
+function ZoneOptions({ groups }: { groups: [string, Zone[]][] }) {
+  return (
+    <>
+      {groups.map(([borough, items]) => (
+        <optgroup key={borough} label={borough}>
+          {items.map((zone) => <option key={zone.location_id} value={zone.location_id}>{zone.zone}</option>)}
+        </optgroup>
+      ))}
+    </>
+  )
+}
+
+function arrivalTime(date: string, time: string, minutes: number) {
+  const start = new Date(`${date}T${time}:00`)
+  if (Number.isNaN(start.getTime())) return ''
+  return new Date(start.getTime() + minutes * 60_000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+function StepProgress({ step, canReach, onGo }: { step: Step; canReach: (target: Step) => boolean; onGo: (target: Step) => void }) {
+  return (
+    <ol className="stepper" aria-label="Progress">
+      {STEP_LABELS.map((label, index) => {
+        const target = index as Step
+        const state = index < step ? 'done' : index === step ? 'active' : 'todo'
+        return (
+          <li key={label} className={state}>
+            <button type="button" onClick={() => onGo(target)} disabled={target === step || !canReach(target)} aria-current={state === 'active' ? 'step' : undefined}>
+              <span className="dot">{state === 'done' ? '✓' : index + 1}</span>
+              <span className="lbl">{label}</span>
+            </button>
+          </li>
+        )
+      })}
+    </ol>
+  )
 }
 
 function MapCamera({ pickup, dropoff }: { pickup?: Zone; dropoff?: Zone }) {
@@ -96,6 +153,9 @@ function StepActions({
 function ModelResults({
   prediction,
   fleet,
+  date,
+  time,
+  active,
   loading,
   error,
   onRetry,
@@ -104,6 +164,9 @@ function ModelResults({
 }: {
   prediction: PredictionPair | null
   fleet: 'Yellow' | 'Green'
+  date: string
+  time: string
+  active: boolean
   loading: boolean
   error: string
   onRetry: () => void
@@ -115,7 +178,7 @@ function ModelResults({
   const maximumFare = Math.max(selected?.fare_amount ?? 1, comparison?.fare_amount ?? 1)
 
   return (
-    <section className="step-card results-card" aria-label="Trip estimate results">
+    <section className={`step-card results-card${active ? ' is-active' : ''}`} aria-label="Trip estimate results" aria-hidden={!active} inert={!active}>
       <div className="step-content">
         <span className="step-kicker">STEP 04 <i /> YOUR ESTIMATE</span>
         <h1>Your ride,<br />in perspective.</h1>
@@ -136,8 +199,26 @@ function ModelResults({
           <>
             <div className="results-intro">
               <span>{selected.pu_name} <i>to</i> {selected.do_name}</span>
-              <small>{selected.is_rush_hour ? 'Peak rush hour' : 'Outside peak rush'}{selected.is_airport ? ' · Airport route' : ''}</small>
+              <div className="chips">
+                <em className="chip dark">{fleet} cab</em>
+                <em className="chip">{selected.is_rush_hour ? 'Rush hour' : 'Off-peak'}</em>
+                {selected.is_airport && <em className="chip">Airport trip</em>}
+                {selected.cross_borough && <em className="chip">Cross-borough</em>}
+              </div>
             </div>
+            <div className="kpis">
+              <div className="kpi y">
+                <small>Trip duration</small>
+                <b>{Math.round(selected.duration_min)}<span> min</span></b>
+                <p>usually {Math.round(selected.duration_range[0])}–{Math.round(selected.duration_range[1])} min · arrive ≈ {arrivalTime(date, time, selected.duration_min)}</p>
+              </div>
+              <div className="kpi d">
+                <small>Metered fare</small>
+                <b>${selected.fare_amount.toFixed(2)}</b>
+                <p>usually ${selected.fare_range[0].toFixed(0)}–${selected.fare_range[1].toFixed(0)} · before tip, tolls, fees</p>
+              </div>
+            </div>
+            <span className="compare-title">Yellow vs Green · same route and time</span>
             <div className="comparison">
               {[selected, comparison].map((item) => (
                 <article className={`comparison-row ${item.taxi_type === fleet.toLowerCase() ? 'selected' : ''}`} key={item.taxi_type}>
@@ -185,6 +266,19 @@ export default function EstimatorPage({ zones, zoneError }: { zones: Zone[]; zon
 
   const pickup = zones.find((zone) => String(zone.location_id) === pickupId)
   const dropoff = zones.find((zone) => String(zone.location_id) === dropoffId)
+  const zoneGroups = useMemo(() => {
+    const groups = new Map<string, Zone[]>()
+    for (const zone of [...zones].sort((a, b) => a.zone.localeCompare(b.zone))) {
+      groups.set(zone.borough, [...(groups.get(zone.borough) ?? []), zone])
+    }
+    return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b))
+  }, [zones])
+  const routeReady = Boolean(pickupId && dropoffId && !zoneError)
+  const timeReady = Boolean(date && time)
+  const canReach = (target: Step) => target === 0
+    || (target === 1 && routeReady)
+    || (target === 2 && routeReady && timeReady)
+    || (target === 3 && routeReady && timeReady && prediction !== null)
 
   useEffect(() => {
     if (step !== 3 || !pickupId || !dropoffId || !date || !time) return
@@ -225,12 +319,14 @@ export default function EstimatorPage({ zones, zoneError }: { zones: Zone[]; zon
           : 'Ready when you are'
 
   const selectPreset = (pickupZone: string, dropoffZone: string) => {
-    const start = zones.find((zone) => zone.zone.toLowerCase() === pickupZone.toLowerCase())
-      ?? zones.find((zone) => zone.zone.toLowerCase().includes(pickupZone.toLowerCase()))
-    const end = zones.find((zone) => zone.zone.toLowerCase().includes(dropoffZone.toLowerCase()))
+    const match = (name: string) => zones.find((zone) => zone.zone === name)
+      ?? zones.find((zone) => zone.zone.toLowerCase().includes(name.toLowerCase()))
+    const start = match(pickupZone)
+    const end = match(dropoffZone)
     if (start) setPickupId(String(start.location_id))
     if (end) setDropoffId(String(end.location_id))
   }
+  const presetOn = (pickupZone: string, dropoffZone: string) => pickup?.zone === pickupZone && dropoff?.zone === dropoffZone
 
   const startEstimate = () => {
     if (!pickupId || !dropoffId || !date || !time) return
@@ -277,38 +373,38 @@ export default function EstimatorPage({ zones, zoneError }: { zones: Zone[]; zon
           {step === 3 && loading && <div className="map-loading" role="status">Calculating your estimate…</div>}
         </aside>
         <div className="pn">
+          <StepProgress step={step} canReach={canReach} onGo={(target) => { if (target !== 3) setLoading(false); setStep(target) }} />
           <div className="steps-viewport">
-            <div className="steps-track" style={{ transform: `translateX(-${step * 25}%)` }}>
-            <section className="step-card" aria-hidden={step !== 0} inert={step !== 0}>
+          <div className="steps-track" style={{ transform: `translateX(-${step * 25}%)` }}>
+            <section className={`step-card${step === 0 ? ' is-active' : ''}`} aria-hidden={step !== 0} inert={step !== 0}>
               <div className="step-content">
                 <span className="step-kicker">STEP 01 <i /> ROUTE</span>
                 <h1>Where are we<br />headed?</h1>
                 {zoneError && <p className="error-box" role="alert">{zoneError}</p>}
                 <div className="two">
                   <label>Pickup location<select value={pickupId} onChange={(event) => setPickupId(event.target.value)} disabled={!zones.length} required>
-                    <option value="">Select a pickup zone</option>
-                    {zones.map((zone) => <option key={zone.location_id} value={zone.location_id}>{zone.display_name}</option>)}
+                    <option value="">{zones.length ? 'Select a pickup zone' : 'Loading zones…'}</option>
+                    <ZoneOptions groups={zoneGroups} />
                   </select></label>
                   <label>Drop-off location<select value={dropoffId} onChange={(event) => setDropoffId(event.target.value)} disabled={!zones.length} required>
-                    <option value="">Select a drop-off zone</option>
-                    {zones.map((zone) => <option key={zone.location_id} value={zone.location_id}>{zone.display_name}</option>)}
+                    <option value="">{zones.length ? 'Select a drop-off zone' : 'Loading zones…'}</option>
+                    <ZoneOptions groups={zoneGroups} />
                   </select></label>
                 </div>
                 <div className="route-actions">
-                  <button type="button" className="quiet-button" onClick={() => { setPickupId(dropoffId); setDropoffId(pickupId) }} disabled={!pickupId || !dropoffId}>Swap locations</button>
+                  <button type="button" className="swap-button" onClick={() => { setPickupId(dropoffId); setDropoffId(pickupId) }} disabled={!pickupId || !dropoffId}><span aria-hidden="true">⇅</span> Swap pickup and drop-off</button>
+                  {pickupId !== '' && pickupId === dropoffId && <p className="small-note warn">Pickup and drop-off are the same zone, so this will be a very short trip.</p>}
+                  <span className="field-label">Quick routes</span>
                   <div className="sg" aria-label="Suggested routes">
-                    <button type="button" onClick={() => selectPreset('JFK Airport', 'Times Sq')}>JFK to Times Square</button>
-                    <button type="button" onClick={() => selectPreset('Penn Station', 'SoHo')}>Penn to SoHo</button>
-                    <button type="button" onClick={() => selectPreset('Central Park', 'SoHo')}>Central Park to SoHo</button>
-                    <button type="button" onClick={() => selectPreset('Brooklyn Heights', 'Times Sq')}>Brooklyn Heights to Times Square</button>
-                    <button type="button" onClick={() => selectPreset('Downtown Brooklyn', 'JFK Airport')}>Downtown Brooklyn to JFK</button>
-                    <button type="button" onClick={() => selectPreset('Penn Station', 'Central Park')}>Penn to Central Park</button>
-                    </div>
+                    {PRESETS.map(([label, from, to]) => (
+                      <button key={label} type="button" className={presetOn(from, to) ? 'on' : ''} onClick={() => selectPreset(from, to)} disabled={!zones.length}>{label}</button>
+                    ))}
                   </div>
                 </div>
+              </div>
               <StepActions step={step} onBack={() => setStep(0)} onNext={() => setStep(1)} nextLabel="Choose departure" disabled={!pickupId || !dropoffId || Boolean(zoneError)} />
             </section>
-            <section className="step-card" aria-hidden={step !== 1} inert={step !== 1}>
+            <section className={`step-card${step === 1 ? ' is-active' : ''}`} aria-hidden={step !== 1} inert={step !== 1}>
               <div className="step-content">
                 <span className="step-kicker">STEP 02 <i /> DEPARTURE</span>
                 <h1>When do you<br />leave?</h1>
@@ -317,18 +413,13 @@ export default function EstimatorPage({ zones, zoneError }: { zones: Zone[]; zon
                   <label>Local time<input type="time" value={time} onChange={(event) => setTime(event.target.value)} required /></label>
                 </div>
                 <div className="sg time-presets" aria-label="Departure time shortcuts">
-                  {[
-                    ['Morning rush', '08:00'],
-                    ['Midday', '13:00'],
-                    ['Evening rush', '18:00'],
-                    ['Late night', '02:00'],
-                  ].map(([label, value]) => <button key={value} type="button" className={time === value ? 'on' : ''} onClick={() => setTime(value)}>{label}</button>)}
+                  {TIME_PRESETS.map(([label, value]) => <button key={value} type="button" className={time === value ? 'on' : ''} onClick={() => setTime(value)}>{label}</button>)}
                 </div>
                 <p className="small-note">Time is interpreted as local New York time.</p>
               </div>
               <StepActions step={step} onBack={() => setStep(0)} onNext={() => setStep(2)} nextLabel="Choose a fleet" disabled={!date || !time} />
             </section>
-            <section className="step-card" aria-hidden={step !== 2} inert={step !== 2}>
+            <section className={`step-card${step === 2 ? ' is-active' : ''}`} aria-hidden={step !== 2} inert={step !== 2}>
               <div className="step-content">
                 <span className="step-kicker">STEP 03 <i /> FLEET</span>
                 <h1>Choose your<br />cab.</h1>
@@ -348,13 +439,16 @@ export default function EstimatorPage({ zones, zoneError }: { zones: Zone[]; zon
             <ModelResults
               prediction={prediction}
               fleet={fleet}
+              date={date}
+              time={time}
+              active={step === 3}
               loading={loading}
               error={error}
               onRetry={startEstimate}
               onBack={() => { setLoading(false); setStep(2) }}
               onReset={reset}
             />
-            </div>
+          </div>
           </div>
         </div>
       </div>

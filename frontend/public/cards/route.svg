@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600">
+  <defs>
+    <pattern id="blocks" width="60" height="44" patternUnits="userSpaceOnUse" patternTransform="rotate(29)">
+      <rect width="60" height="44" fill="#ddd9cd"/>
+      <rect x="5" y="5" width="50" height="34" rx="3" fill="#e9e6dc"/>
+    </pattern>
+    <linearGradient id="fade" x1="0" x2="1">
+      <stop offset="0" stop-color="#e9e7df"/><stop offset=".55" stop-color="#e9e7df" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="900" height="600" fill="url(#blocks)"/>
+  <path d="M560 -20C520 120 600 210 540 330S600 520 560 640" fill="none" stroke="#c9d6da" stroke-width="46"/>
+  <path d="M380 0L470 600M240 120L900 470M300 600L900 140" stroke="#f6f3ea" stroke-width="12"/>
+  <path d="M640 80C690 160 700 200 760 230" fill="none" stroke="#b9c9b0" stroke-width="60" stroke-linecap="round" opacity=".7"/>
+  <path d="M430 470C500 420 520 360 610 330S720 210 790 150" fill="none" stroke="#24272033" stroke-width="16" stroke-linecap="round"/>
+  <path d="M430 470C500 420 520 360 610 330S720 210 790 150" fill="none" stroke="#d9b45a" stroke-width="7" stroke-linecap="round" stroke-dasharray="16 12"/>
+  <g transform="translate(430 470)"><circle r="20" fill="#537a64" opacity=".25"/><circle r="10" fill="#537a64" stroke="#fff" stroke-width="4"/></g>
+  <g transform="translate(790 150)"><circle r="20" fill="#a8644d" opacity=".25"/><circle r="10" fill="#a8644d" stroke="#fff" stroke-width="4"/></g>
+  <rect width="900" height="600" fill="url(#fade)"/>
+</svg>

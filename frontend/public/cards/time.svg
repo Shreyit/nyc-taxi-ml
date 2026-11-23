@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e2e7e1"/><stop offset=".55" stop-color="#efd9b4"/><stop offset="1" stop-color="#e6b98a"/>
+    </linearGradient>
+    <linearGradient id="fade" x1="0" x2="1">
+      <stop offset="0" stop-color="#e2e7e1"/><stop offset=".55" stop-color="#e2e7e1" stop-opacity="0"/>
+    </linearGradient>
+    <pattern id="win" width="16" height="22" patternUnits="userSpaceOnUse"><rect x="4" y="5" width="6" height="9" fill="#f4d58a" opacity=".55"/></pattern>
+  </defs>
+  <rect width="900" height="600" fill="url(#sky)"/>
+  <circle cx="690" cy="330" r="95" fill="#f3c47a" opacity=".75"/>
+  <circle cx="690" cy="330" r="150" fill="none" stroke="#a8644d" stroke-opacity=".25" stroke-width="2" stroke-dasharray="3 14"/>
+  <path d="M690 330V240M690 330l58 34" stroke="#3a3e36" stroke-width="7" stroke-linecap="round" opacity=".55"/>
+  <g fill="#4d5149">
+    <rect x="430" y="300" width="70" height="300"/><rect x="510" y="250" width="56" height="350"/><rect x="576" y="360" width="80" height="240"/>
+    <rect x="760" y="280" width="64" height="320"/><rect x="830" y="340" width="80" height="260"/><path d="M660 600V200l26-40 26 40v400z"/>
+  </g>
+  <g fill="url(#win)"><rect x="430" y="300" width="70" height="300"/><rect x="510" y="250" width="56" height="350"/><rect x="760" y="280" width="64" height="320"/><path d="M660 600V200l26-40 26 40v400z"/></g>
+  <rect y="540" width="900" height="60" fill="#3a3e36"/>
+  <path d="M0 570H900" stroke="#d9b45a" stroke-width="4" stroke-dasharray="30 26"/>
+  <rect width="900" height="600" fill="url(#fade)"/>
+</svg>

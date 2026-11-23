@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600">
+  <defs>
+    <linearGradient id="fade" x1="0" x2="1">
+      <stop offset="0" stop-color="#ece4dc"/><stop offset=".5" stop-color="#ece4dc" stop-opacity="0"/>
+    </linearGradient>
+    <g id="cab">
+      <path d="M0 70Q0 48 26 44L70 12Q80 4 96 4H190Q206 4 216 14L250 44Q290 48 292 72V92H0Z"/>
+      <path d="M82 18H136V44H58ZM146 18H196L226 44H146Z" fill="#cfe3ea"/>
+      <rect x="118" y="-12" width="48" height="16" rx="3" fill="#f6f1e2" stroke="#2a2d27" stroke-width="2"/>
+      <text x="142" y="0" font-family="sans-serif" font-weight="800" font-size="10" text-anchor="middle" fill="#2a2d27">TAXI</text>
+      <circle cx="62" cy="94" r="22" fill="#24271f"/><circle cx="62" cy="94" r="9" fill="#9aa39a"/>
+      <circle cx="232" cy="94" r="22" fill="#24271f"/><circle cx="232" cy="94" r="9" fill="#9aa39a"/>
+      <rect x="282" y="58" width="10" height="10" rx="2" fill="#fff3c4"/>
+    </g>
+  </defs>
+  <rect width="900" height="600" fill="#ece4dc"/>
+  <rect y="470" width="900" height="130" fill="#d6cbbf"/>
+  <path d="M0 520H900" stroke="#f4efe6" stroke-width="6" stroke-dasharray="44 30"/>
+  <use href="#cab" transform="translate(360 330) scale(1.15)" fill="#d9b45a"/>
+  <use href="#cab" transform="translate(560 390) scale(1.15)" fill="#6f9a7d"/>
+  <rect width="900" height="600" fill="url(#fade)"/>
+</svg>
