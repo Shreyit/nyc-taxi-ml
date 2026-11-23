@@ -2,8 +2,7 @@
 
 **Task:** Regression (Trip Duration & Metered Fare Prediction)  
 **Dataset:** NYC TLC Yellow & Green Trip Records, Calendar Year 2025 (49,313,977 raw rows)  
-**Core Implementation:** Single Self-Contained Notebook (`notebooks/nyc_taxi_trip_duration.ipynb`) & Streamlit Web App (`app/streamlit_app.py`)  
-**Live App:** https://nyc-taxi-prediction.streamlit.app/  
+**Core Implementation:** Modeling notebook (`notebooks/nyc_taxi_trip_duration.ipynb`), LightGBM serving engine (`src/serving/predictor.py`), FastAPI service (`api/main.py`), and React frontend (`frontend/`)
 
 ---
 
@@ -21,7 +20,7 @@
 11. [Research Question Findings (Taxi Type Signals)](#11-research-question-findings-taxi-type-signals)
 12. [Error Analysis & Permutation Feature Importance](#12-error-analysis--permutation-feature-importance)
 13. [Limitations & Responsible Machine Learning](#13-limitations--responsible-machine-learning)
-14. [Serving Engine & Streamlit Web Application](#14-serving-engine--streamlit-web-application)
+14. [Serving Engine, API and React Application](#14-serving-engine-api-and-react-application)
 15. [Technical Architecture Decision Log](#15-technical-architecture-decision-log)
 
 ---
@@ -303,27 +302,130 @@ While permutation importance scores global loss of accuracy upon column shufflin
 
 ---
 
-## 14. Serving Engine & Streamlit Web Application
+## 14. Serving Engine, API and React Application
 
-The two saved models are served by an interactive app in `app/streamlit_app.py`, backed by `src/serving/predictor.py`.
-It is deployed on Streamlit Community Cloud: **https://nyc-taxi-prediction.streamlit.app/**
+The deployed application uses the existing two-stage LightGBM pipeline through
+`src/serving/predictor.py`, exposes predictions from `api/main.py` (FastAPI),
+and presents the workflow in `frontend/` (React, TypeScript, Vite, and
+React-Leaflet). `app/streamlit_app.py` remains in the repository as a legacy
+prototype; it is not the current web application.
 
-### What the user does (one page, four steps)
-1. **Route:** pick pickup and drop-off zones (or a quick route such as JFK → Times Sq), with a swap button.
-2. **Departure:** pick a date and time, or a preset (morning rush, midday, evening rush, late night).
-3. **Fleet & weather:** Yellow or Green, and a dry / rain / snow scenario.
-4. **Estimate:** duration and fare cards with a "usually" range, trip chips (airport, rush hour, cross-borough), a route map, and a Yellow vs Green comparison for the same route and time.
+### Request lifecycle
 
-### How a prediction is made
-* The app builds the **same features as the notebook** for one trip and runs Stage 1, then feeds the predicted duration into Stage 2.
-* **Lookup tables** (`outputs/lookup/`) hold route and pickup-zone history built from **all 45M cleaned 2025 trips** (both fleets, trip-weighted), zone centres in EPSG:2263 km (same as notebook §5.1), and monthly average weather. They are rebuilt with `uv run python scripts/build_serving_lookups.py`.
-* The "usually" range is about −3 / +3 min around the duration (test median error is 3.26 min) and about −$2.5 / +$3 around the fare.
-* Unknown zone IDs (outside 1–263) are rejected; Green-cab hail restrictions and same-zone trips show a warning.
+1. When FastAPI starts, its lifespan handler initializes `TaxiPredictor` and
+   loads the tracked models, feature metadata, taxi-zone lookup, and historical
+   route/pickup priors.
+2. The frontend retrieves the taxi zones from `GET /api/zones`. The zone list
+   supplies the IDs, borough/zone names, and centroid coordinates used by the
+   selectors and map.
+3. The user completes four steps: pickup/drop-off, local departure date/time,
+   fleet choice, then result. No prediction request is sent until the user
+   submits the final step.
+4. `POST /api/predict` runs the predictor once for the selected fleet and once
+   for the other fleet, returning both estimates for comparison.
+5. The frontend displays the selected route and estimates. “Start a new
+   estimate” clears the wizard state so the user can begin again.
+
+### API contract
+
+| Method and path | Request | Response |
+|---|---|---|
+| `GET /api/health` | None | `{"status":"ok"}` when the predictor is loaded; HTTP 503 otherwise. |
+| `GET /api/zones` | None | Array of zones with `location_id`, `borough`, `zone`, `display_name`, `lat`, and `lon`. |
+| `POST /api/predict` | `pickup_zone`, `dropoff_zone`, `pickup_at`, and `taxi_type` (`Yellow` or `Green`). | `selected` and `comparison` estimate objects. Invalid zone IDs return HTTP 422. |
+
+Each estimate includes predicted duration and fare, their ranges, pickup and
+drop-off names/coordinates, taxi type, and airport/rush-hour/cross-borough
+flags. Naive `pickup_at` values are interpreted as `America/New_York`; timezone
+aware values are converted to New York time. The interactive OpenAPI schema is
+available at `/docs`.
+
+### Frontend behavior and scope
+
+* **Four-step wizard:** Route, departure, fleet, and results. Location fields
+  begin empty, progression is disabled until required values are supplied, and
+  the reset action clears the full flow.
+* **Fixed, responsive map:** Leaflet displays OpenStreetMap tiles, taxi-zone
+  centroids, and a straight line between the selected endpoints. This line is
+  a visual zone-to-zone preview, not a road-following route or navigation
+  instruction. OSM tiles require a network connection and retain the required
+  attribution.
+* **Model-backed comparison:** Selected and comparison taxi fleets are
+  generated by the serving predictor. The UI presents the selected trip,
+  duration/fare metrics, and model-returned context; it does not calculate
+  predictions in the browser.
+* **Responsive estimator layout:** Desktop keeps the map in a fixed framed card
+  beside the step carousel; smaller screens stack the map above the controls.
+* **Overview hero:** The street photograph is positioned to keep the roadway
+  visible through the windshield. Its dashboard is an illustrative SVG (gauges,
+  fare meter, radio, vents, climate controls, and steering wheel), not a live
+  vehicle interface.
+* **Limits shown to users:** Weather is based on the predictor’s seasonal
+  baseline, not a live weather feed. Fare estimates are metered fare only and
+  do not include tips, tolls, airport fees, or other surcharges.
+
+### Run locally
+
+Requirements: Python 3.14+ and `uv` for the API, plus Node.js 22.12+ and npm
+for the frontend. Default Python dependencies are the lean serving set. To run
+the analysis notebook, install its optional dependencies with
+`uv sync --extra analysis`. The model artifacts and lookup tables are required,
+but raw trip downloads and notebook execution are not needed to serve
+predictions.
+
+Start the API from the repository root:
 
 ```bash
-# run locally
-uv run streamlit run app/streamlit_app.py
+uv sync
+uv run uvicorn api.main:app --reload
 ```
+
+In another terminal:
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+Open the Vite URL (normally `http://localhost:5173`). Vite proxies `/api` to
+`http://127.0.0.1:8000` in development. FastAPI's interactive docs are at
+`http://localhost:8000/docs`.
+
+### Deployment to Vercel
+
+The repository is configured as one Vercel project using Vercel Services
+(currently Beta). The root [`vercel.json`](../vercel.json) defines two service
+roots: `frontend/` for the Vite app and the repository root for FastAPI, with
+`api.main:app` as its entrypoint. Rewrites send `/api/*` requests to FastAPI
+and all other paths to the frontend. The frontend uses relative `/api/...`
+requests, so `VITE_API_BASE_URL` should remain blank for this same-origin
+deployment.
+
+The project root in Vercel must remain the repository root. Link and deploy
+from the repository root with the Vercel CLI:
+
+```bash
+npx vercel@latest login
+npx vercel@latest link
+npx vercel@latest
+npx vercel@latest --prod
+```
+
+The base Python dependencies in `pyproject.toml` are limited to serving
+requirements. Notebook and model-training packages are in the `analysis`
+optional extra and are not installed into the Vercel backend. The backend
+service configuration explicitly bundles `outputs/models/` and
+`outputs/lookup/`, which the predictor loads at startup; raw TLC files and the
+notebook are not needed.
+
+Vercel supports Python 3.14, matching the project's `requires-python`.
+Standard Python function bundles are limited to 500 MB, so check the first
+deployment's build logs for the final bundle size and runtime initialization
+errors. Same-origin requests do not need CORS. If deploying the frontend and
+API on different domains instead, set `VITE_API_BASE_URL` to the API origin and
+configure the API's comma-separated `CORS_ORIGINS` allowlist. Never put secrets
+in `VITE_*` variables; they are public build-time values.
 
 ---
 
@@ -339,5 +441,8 @@ uv run streamlit run app/streamlit_app.py
 | **D-06** | Passenger Count Utility | Completely drop `passenger_count` from modeling and UI | Eliminates 24% missingness and simplifies user input. |
 | **D-07** | Blending vs. Single Model | Retain single LightGBM model for final predictions | Avoids pipeline opacity and preserves clean feature importance. |
 | **D-08** | Two-Stage Architecture | Stage 1 predicted duration fed into Stage 2 fare model | Eliminates target leakage while unlocking duration–fare correlation. |
-| **D-09** | Always-Visible Map in App | Unconditional PyDeck map rendering on dropdown change | Instant visual feedback whenever locations are selected. |
-| **D-10** | Train/serve consistency in the app | Build app lookups from all cleaned trips with the notebook's formulas (`build_serving_lookups.py`) | App predictions match how the models were trained. |
+| **D-09** | Web application framework | React + TypeScript frontend, FastAPI inference service | Keeps the interactive client deployable to Vercel while Python serves the existing models. |
+| **D-10** | Map rendering | React-Leaflet with OpenStreetMap tiles and attribution | Realistic basemap; the displayed endpoint line is explicitly a centroid preview, not road routing. |
+| **D-11** | Estimator interaction | Four-step wizard with final-step-only prediction | Required trip inputs are collected in sequence; predictions are requested only after confirmation. |
+| **D-12** | Frontend/API deployment | Use Vercel Services to route Vite and FastAPI from one project and origin | API stays on Vercel; same-origin requests avoid a separate API host and CORS setup. |
+| **D-13** | Vercel Python bundle size | Keep serving dependencies in the base project dependencies and analysis tools in an optional extra | Avoid shipping notebook/training packages with the FastAPI function. |

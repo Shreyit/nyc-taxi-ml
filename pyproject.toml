@@ -3,21 +3,28 @@ name = "nyc-taxi-ml"
 version = "0.1.0"
 requires-python = ">=3.14"
 dependencies = [
+    "fastapi>=0.165.0",
+    "holidays>=0.108",
+    "joblib>=1.5.3",
+    "lightgbm>=4.7.0",
+    "numpy>=2.5.4",
+    "pandas>=3.1.1",
+    "pyarrow>=26.0.1",
+    "scikit-learn>=1.9.1",
+    "uvicorn>=0.54.0",
+]
+
+[project.optional-dependencies]
+analysis = [
     "duckdb>=2.0.0",
     "faiss-cpu>=1.16.0",
     "geopandas>=1.2.0",
-    "holidays>=0.108",
     "ipykernel>=7.4.0",
     "jupyterlab>=4.6.6",
-    "lightgbm>=4.7.0",
     "matplotlib>=3.11.2",
-    "numpy>=2.5.4",
-    "pandas>=3.1.1",
     "plotly>=7.1.0",
     "polars>=2.1.0",
-    "pyarrow>=26.0.1",
     "pyogrio>=0.13.0",
-    "scikit-learn>=1.9.1",
     "scipy>=1.18.1",
     "seaborn>=0.13.2",
     "shap>=0.54.1",
@@ -27,5 +34,6 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28.1",
     "pytest>=9.2.0",
 ]

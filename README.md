@@ -8,16 +8,14 @@
 <img alt="uv" src="https://img.shields.io/badge/uv-managed-DE5FE9?style=for-the-badge&logo=uv&logoColor=white"/>
 <img alt="DuckDB" src="https://img.shields.io/badge/DuckDB-%2B%20Parquet-FFF000?style=for-the-badge&logo=duckdb&logoColor=black"/>
 <img alt="LightGBM" src="https://img.shields.io/badge/LightGBM-%2B%20XGBoost-9ACD32?style=for-the-badge&logo=lightgbm&logoColor=white"/>
-<a href="https://nyc-taxi-prediction.streamlit.app/"><img alt="Open the live Streamlit app" src="https://img.shields.io/badge/Streamlit-live%20app-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white"/></a>
+<img alt="React" src="https://img.shields.io/badge/React-frontend-149ECA?style=for-the-badge&logo=react&logoColor=white"/>
 
 **How long will this ride take, and what will it cost?**
-A two-stage machine learning pipeline over the full **2025** NYC TLC trip records:
-predict trip duration from what is known when the taxi is hailed, then predict the
-fare using that predicted duration.
+A two-stage machine learning pipeline and interactive React application built on
+**2025** NYC TLC trip records. The app estimates trip duration from pre-trip
+information, then predicts the metered fare using that estimated duration.
 
-**[Try the live app →](https://nyc-taxi-prediction.streamlit.app/)**
-
-[Status](#status) · [Pipeline](#pipeline) · [Data](#data) · [No peeking](#no-peeking-at-the-future) · [Quickstart](#quickstart)
+[Status](#status) · [Pipeline](#pipeline) · [Data](#data) · [No peeking](#no-peeking-at-the-future) · [Web app](#web-application-quickstart) · [Analysis](#machine-learning-quickstart)
 
 </div>
 
@@ -53,7 +51,7 @@ Status of the final notebook and project components:
 | **9** | **System Integration & Pipeline Evaluation** (End-to-end two-stage serving & error propagation) | **Complete & Executed** |
 | **10** | **Limitations & Edge Cases** (Residual anomalies, airport flat rates, out-of-distribution extremes) | **Complete & Executed** |
 | **11** | **Conclusion & Responsible AI** (Fairness audit across boroughs, deployment recommendations) | **Complete & Executed** |
-| **—** | **Streamlit Web Application** (`app/streamlit_app.py` interactive 3D map & serving engine) | **Complete & Verified** |
+| **—** | **React Web Application** (`frontend/` + FastAPI model service in `api/`) | **Complete & Verified** |
 
 **Split:** train Jan–Aug · validation Sep–Oct · test Nov–Dec 2025 (strict chronological, no shuffling).  
 **Models:** Median and route-history baselines, Linear Regression, Decision Tree, Random Forest, HistGradientBoosting, LightGBM, XGBoost, and FAISS KNN.  
@@ -110,7 +108,8 @@ history, because tips and tolls are unknowable in advance.
 
 ```text
 nyc-taxi-ml/
-├── app/                      interactive Streamlit web app (streamlit_app.py)
+├── api/                      FastAPI prediction and taxi-zone endpoints
+├── app/                      legacy Streamlit prototype (not the deployed app)
 ├── assets/                   README graphics and hero illustration
 ├── data/
 │   ├── raw/                  (git-ignored) monthly TLC Parquet files (~800 MB)
@@ -123,44 +122,146 @@ nyc-taxi-ml/
 │   ├── lookup/               (tracked) fast runtime spatial lookup parquets
 │   └── models/               (tracked) trained duration & fare LightGBM models + feature schemas
 ├── scripts/                  get_data.py (download), export_serving_artifacts.py (serving export)
+├── frontend/                 React + TypeScript + Vite app (Vercel frontend)
 ├── src/serving/              predictor.py (two-stage inference engine)
-├── tests/                    test_serving.py (serving smoke tests)
+├── tests/                    serving and FastAPI endpoint tests
+├── vercel.json               Vercel Services routing for frontend + API
 └── docs/
     └── PROJECT_DOCUMENTATION.md       exhaustive technical report & architecture documentation
 ```
 
-## Quickstart
+## Machine-learning quickstart
 
-Requires [uv](https://docs.astral.sh/uv/). The raw data (~860 MB) is **not in Git**; download it once:
+Requires [uv](https://docs.astral.sh/uv/) and Python **3.14 or newer**. The raw
+trip data is not in Git; download it only if you intend to rerun the analysis:
 
 ```bash
 git clone https://github.com/Shreyit/nyc-taxi-ml.git
 cd nyc-taxi-ml
-uv sync                                # creates .venv with all dependencies
-uv run python scripts/get_data.py      # downloads the 24 monthly files + zone files into data/raw/
+uv sync --extra analysis
+uv run python scripts/get_data.py
 ```
 
-After the download, run the full pipeline in **`notebooks/nyc_taxi_trip_duration.ipynb`** using the `nyc-taxi-ml (3.15.1)` kernel.
+The downloader fetches 24 monthly files plus zone data into `data/raw/`. Run the
+analysis from [`notebooks/nyc_taxi_trip_duration.ipynb`](notebooks/nyc_taxi_trip_duration.ipynb)
+using the project environment. Running the analysis is not required to launch
+the app: the serving models and lookup tables are already in `outputs/`.
 
-### Running the Web Application
+## Web application quickstart
 
-The app is live at **https://nyc-taxi-prediction.streamlit.app/**. To run it locally instead:
+The app is a React + TypeScript single-page frontend and a separate FastAPI
+model service. The app guides a rider through pickup/drop-off zones, departure
+date and time, and taxi fleet selection, then compares predictions for both
+fleets. Its fixed OpenStreetMap view draws a straight line between zone
+centroids; it is **not** a road route or turn-by-turn navigation. Predictions
+come from the tracked LightGBM serving artifacts, not a browser-side formula.
+
+Prerequisites: Python 3.14+ with `uv`, and Node.js 22.12+ with npm. From the
+repository root, start the API in one terminal:
 
 ```bash
-uv run streamlit run app/streamlit_app.py
+uv run uvicorn api.main:app --reload
 ```
 
-### Running Tests
+In another terminal, install frontend dependencies and start Vite:
 
 ```bash
-uv run pytest tests/test_serving.py
+cd frontend
+npm ci
+npm run dev
+```
+
+Open the URL Vite prints (normally `http://localhost:5173`). In local
+development, Vite forwards `/api` requests to `http://127.0.0.1:8000`. The API
+loads `outputs/models/` and `outputs/lookup/` when it starts; no raw trip
+downloads are needed. Interactive API documentation is available at
+`http://localhost:8000/docs`.
+
+### API reference
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/api/health` | Confirms the predictor initialized. |
+| `GET` | `/api/zones` | Lists taxi-zone IDs, names, boroughs, and centroid coordinates. |
+| `POST` | `/api/predict` | Returns selected-fleet and comparison-fleet estimates. |
+
+Example request:
+
+```json
+{
+  "pickup_zone": 132,
+  "dropoff_zone": 230,
+  "pickup_at": "2026-11-23T18:00:00",
+  "taxi_type": "Yellow"
+}
+```
+
+`taxi_type` must be `Yellow` or `Green`. A timezone-naive `pickup_at` is
+interpreted as New York local time; an offset-aware timestamp is converted to
+that timezone. The prediction response contains `selected` and `comparison`
+objects, each with a duration and range, metered fare and range, zone names and
+coordinates, and trip context flags. Fare estimates exclude tips, tolls,
+airport fees, and other surcharges.
+
+### Deployment
+
+This repository is configured for one Vercel project using **Vercel Services**
+(currently Beta): the Vite frontend handles `/`, and FastAPI handles `/api/*`.
+The Vercel configuration is in [`vercel.json`](vercel.json). The backend uses
+the lean runtime dependencies in `pyproject.toml`; research/notebook packages
+are in the `analysis` extra. `outputs/models/` and `outputs/lookup/` are
+explicitly included in the Python function bundle. Raw trip downloads are not
+required.
+
+From the repository root, install the Vercel CLI and link this checkout to the
+project (the CLI prompts for authentication and project selection):
+
+```bash
+npx vercel@latest login
+npx vercel@latest link
+```
+
+Deploy a preview first, then production:
+
+```bash
+npx vercel@latest
+npx vercel@latest --prod
+```
+
+Keep the Vercel project root at the repository root so it can read
+`vercel.json`, `pyproject.toml`, `api/`, and the model artifacts. Do not set the
+root to `frontend/`; the services configuration selects `frontend/` and the
+FastAPI entrypoint separately. Leave `VITE_API_BASE_URL` blank: both services
+share the Vercel origin, and the frontend calls `/api/...` through the service
+rewrite. The local Vite proxy remains configured for development.
+
+After deployment, verify `https://<deployment>/api/health` returns
+`{"status":"ok"}`, `https://<deployment>/api/zones` returns the taxi-zone list,
+and then submit a trip from `https://<deployment>/#model`. Same-origin calls
+do not require CORS configuration. If you later split the services across
+domains, set `VITE_API_BASE_URL` to the API origin and configure the API's
+`CORS_ORIGINS` allowlist.
+
+The project requires Python 3.14+ (supported by Vercel). Vercel's standard
+Python function bundle limit is 500 MB; the API dependency set is minimized
+for deployment, but the first deployment should still be checked for bundle
+size and function startup/memory errors. Vercel Services is currently Beta.
+
+### Checks
+
+From the repository root:
+
+```bash
+uv run python -m pytest tests/test_serving.py tests/test_api.py
+npm --prefix frontend run lint
+npm --prefix frontend run build
 ```
 
 ## Documentation
 
 The complete, exhaustive technical documentation is consolidated in:
 
-* 📄 **[`docs/PROJECT_DOCUMENTATION.md`](docs/PROJECT_DOCUMENTATION.md)**: Comprehensive technical documentation covering problem formulation, data dictionary, cleaning waterfall, leakage controls, two-stage modeling benchmarks, fleet fairness analysis, permutation feature importance, responsible AI, and architecture decisions.
+* 📄 **[`docs/PROJECT_DOCUMENTATION.md`](docs/PROJECT_DOCUMENTATION.md)**: Technical report covering the modeling study, data and leakage controls, evaluation, limitations, and the current React + FastAPI serving architecture.
 
 ## Responsible use
 
