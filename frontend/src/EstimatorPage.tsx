@@ -226,6 +226,7 @@ export default function EstimatorPage({ zones, zoneError }: { zones: Zone[]; zon
 
   const selectPreset = (pickupZone: string, dropoffZone: string) => {
     const start = zones.find((zone) => zone.zone.toLowerCase() === pickupZone.toLowerCase())
+      ?? zones.find((zone) => zone.zone.toLowerCase().includes(pickupZone.toLowerCase()))
     const end = zones.find((zone) => zone.zone.toLowerCase().includes(dropoffZone.toLowerCase()))
     if (start) setPickupId(String(start.location_id))
     if (end) setDropoffId(String(end.location_id))
@@ -276,7 +277,8 @@ export default function EstimatorPage({ zones, zoneError }: { zones: Zone[]; zon
           {step === 3 && loading && <div className="map-loading" role="status">Calculating your estimate…</div>}
         </aside>
         <div className="pn">
-          <div className="steps-track" style={{ transform: `translateX(-${step * 25}%)` }}>
+          <div className="steps-viewport">
+            <div className="steps-track" style={{ transform: `translateX(-${step * 25}%)` }}>
             <section className="step-card" aria-hidden={step !== 0} inert={step !== 0}>
               <div className="step-content">
                 <span className="step-kicker">STEP 01 <i /> ROUTE</span>
@@ -297,9 +299,13 @@ export default function EstimatorPage({ zones, zoneError }: { zones: Zone[]; zon
                   <div className="sg" aria-label="Suggested routes">
                     <button type="button" onClick={() => selectPreset('JFK Airport', 'Times Sq')}>JFK to Times Square</button>
                     <button type="button" onClick={() => selectPreset('Penn Station', 'SoHo')}>Penn to SoHo</button>
+                    <button type="button" onClick={() => selectPreset('Central Park', 'SoHo')}>Central Park to SoHo</button>
+                    <button type="button" onClick={() => selectPreset('Brooklyn Heights', 'Times Sq')}>Brooklyn Heights to Times Square</button>
+                    <button type="button" onClick={() => selectPreset('Downtown Brooklyn', 'JFK Airport')}>Downtown Brooklyn to JFK</button>
+                    <button type="button" onClick={() => selectPreset('Penn Station', 'Central Park')}>Penn to Central Park</button>
+                    </div>
                   </div>
                 </div>
-              </div>
               <StepActions step={step} onBack={() => setStep(0)} onNext={() => setStep(1)} nextLabel="Choose departure" disabled={!pickupId || !dropoffId || Boolean(zoneError)} />
             </section>
             <section className="step-card" aria-hidden={step !== 1} inert={step !== 1}>
@@ -348,6 +354,7 @@ export default function EstimatorPage({ zones, zoneError }: { zones: Zone[]; zon
               onBack={() => { setLoading(false); setStep(2) }}
               onReset={reset}
             />
+            </div>
           </div>
         </div>
       </div>
