@@ -8,7 +8,7 @@ export function RadioDisplay({ state }: { state: RadioState | null }) {
   const on = !!state?.on
   const status = !state || !on ? 'OFF' : state.loading ? 'TUNING…' : 'ON AIR'
   const frequency = state?.station?.frequency ?? 'FM 101.1'
-  const name = state?.error || state?.station?.name || 'NEW YORK · LIVE RADIO'
+  const name = state?.error || (on ? state?.station?.name : '') || 'PRESS ⏻ TO PLAY LIVE NYC RADIO'
   return (
     <g className={`radio-display${on ? ' on' : ''}`}>
       <text x="787" y="757" fontFamily="Manrope, sans-serif" fontWeight="700" fontSize="28" fill="#e1d18f" opacity={on ? 1 : 0.55}>{frequency}</text>
@@ -55,6 +55,7 @@ export function RadioButtons({ state, live, onPower, onNext }: {
   const on = !!state?.on
   return (
     <g className="radio-buttons">
+      {!on && live && <circle className="dash-btn-hint" cx={1164} cy={807} r={14} fill="none" stroke="#e9c975" strokeWidth="2" />}
       <DashButton cx={1164} label={on ? 'Turn radio off' : 'Turn radio on'} pressed={on} live={live} onPress={onPower}>
         <path d="M1160.2 801.6a6 6 0 1 0 7.6 0" />
         <path d="M1164 799v6.5" />

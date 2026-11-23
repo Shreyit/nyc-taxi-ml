@@ -8,7 +8,7 @@ import MethodologyPage from './MethodologyPage'
 import { playTaxiStart } from './engineSound'
 import { playWiperSwish, startRainSound, stopRainSound } from './rainSound'
 import { createRadio, type Radio, type RadioState } from './radio'
-import { animateStreet, createRain, createWipers, RadioButtons, RadioDisplay, RainGlass, SplitText, StreetLife, Wipers } from './hero'
+import { animateStreet, createRain, createWipers, DashTexture, HeadlinerTexture, InteriorDefs, PanelGrain, RadioButtons, RadioDisplay, RainGlass, SplitText, StreetLife, WheelLeather, WindscreenGlass, Wipers } from './hero'
 
 const pageIds: Page[] = ['home', 'model', 'docs']
 
@@ -558,6 +558,7 @@ function CityScene({ ready }: { ready: boolean }) {
         <div id="in-wrap" ref={stageRef}>
         <svg ref={glassRef} id="in" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
           <defs>
+            <InteriorDefs />
             <linearGradient id="dash" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0" stopColor="#353b37" />
               <stop offset=".2" stopColor="#1c211e" />
@@ -616,11 +617,14 @@ function CityScene({ ready }: { ready: boolean }) {
             </radialGradient>
           </defs>
           <path fillRule="evenodd" fill="#121816" d="M0 0H1600V900H0ZM330 170H1270L1360 560H240Z" />
+          <HeadlinerTexture />
           <path d="M330 170 240 560M1270 170 1360 560" fill="none" stroke="#303632" strokeWidth="18" />
           <path d="M334 174 250 548M1266 174 1350 548" fill="none" stroke="#777d72" strokeOpacity=".6" strokeWidth="2" />
           <StreetLife />
+          <WindscreenGlass />
           <g className="dash">
           <path d="M0 558C230 526 415 528 610 550C790 570 810 570 990 550C1185 528 1370 526 1600 558V1000H0Z" fill="url(#dash)" />
+          <DashTexture />
           <path d="M0 558C230 526 415 528 610 550C790 570 810 570 990 550C1185 528 1370 526 1600 558" fill="none" stroke="#929589" strokeOpacity=".48" strokeWidth="4" />
           <path d="M0 574C240 547 410 550 610 568M990 568C1190 550 1360 547 1600 574" fill="none" stroke="#090d0b" strokeWidth="8" />
           <path d="M800 158V186" stroke="#111613" strokeWidth="12" strokeLinecap="round" />
@@ -631,6 +635,7 @@ function CityScene({ ready }: { ready: boolean }) {
 
           <g>
             <rect x="278" y="612" width="390" height="194" rx="30" fill="#111614" stroke="#596159" strokeWidth="5" />
+            <PanelGrain x={278} y={612} width={390} height={194} rx={30} />
             <rect x="292" y="626" width="362" height="166" rx="22" fill="#080c0b" stroke="#242b26" strokeWidth="3" />
             <Gauge cx={405} cy={700} max={120} major={20} minor={5} label="MPH" unit="" needleAngle={angleFor(0, 120)} needleRef={mphRef} />
             <rect x="384" y="728" width="42" height="11" rx="2.5" fill="#0f1a16" stroke="#48584a" strokeWidth="1" />
@@ -662,6 +667,7 @@ function CityScene({ ready }: { ready: boolean }) {
 
           <g>
             <rect x="748" y="674" width="492" height="148" rx="18" fill="#111614" stroke="url(#metal)" strokeWidth="5" />
+            <PanelGrain x={748} y={674} width={492} height={148} rx={18} />
             <rect x="765" y="689" width="458" height="103" rx="9" fill="url(#radio-screen)" stroke="#080b0a" strokeWidth="4" />
             <path d="M780 704H1207" stroke="#829080" strokeOpacity=".25" strokeWidth="1" />
             <text x="787" y="716" fontFamily="Manrope, sans-serif" fontWeight="700" fontSize="9" letterSpacing="2" fill="#c4c7b5">CITY RADIO</text>
@@ -678,6 +684,7 @@ function CityScene({ ready }: { ready: boolean }) {
 
           <g>
             <rect x="778" y="838" width="432" height="52" rx="16" fill="#151a17" stroke="#414941" strokeWidth="3" />
+            <PanelGrain x={778} y={838} width={432} height={52} rx={16} />
             {[838, 994, 1150].map((x) => (
               <g key={x}>
                 <circle cx={x} cy="864" r="19" fill="#0a0e0d" stroke="url(#metal)" strokeWidth="4" />
@@ -691,10 +698,12 @@ function CityScene({ ready }: { ready: boolean }) {
           </g>
 
           <path d="M1265 730Q1380 714 1510 740V830Q1370 812 1265 840Z" fill="#171c19" stroke="#39413a" strokeWidth="3" />
+          <path d="M1265 730Q1380 714 1510 740V830Q1370 812 1265 840Z" fill="url(#tex-vinyl)" opacity=".4" />
           <path d="M1300 752Q1380 740 1470 755" fill="none" stroke="#62695f" strokeOpacity=".55" strokeWidth="2" />
           <g className="wheel">
             <ellipse cx="470" cy="905" rx="150" ry="124" fill="none" stroke="#050706" strokeWidth="38" />
             <ellipse cx="470" cy="905" rx="150" ry="124" fill="none" stroke="url(#rim)" strokeWidth="28" />
+            <WheelLeather />
             <ellipse cx="470" cy="905" rx="150" ry="124" fill="none" stroke="#7d857a" strokeOpacity=".4" strokeWidth="1.2" strokeDasharray="3 5" />
             <ellipse cx="470" cy="905" rx="163" ry="137" fill="none" stroke="url(#rim-hi)" strokeWidth="2.5" />
             <path d="M326 868Q330 846 344 832L362 846Q350 858 348 874Z M614 868Q610 846 596 832L578 846Q590 858 592 874Z" fill="#0e1210" opacity=".9" />
@@ -720,7 +729,8 @@ function CityScene({ ready }: { ready: boolean }) {
           <span className="eyebrow">New York City · trip intelligence</span>
           <h1>Know the <em>Fares</em><br />before you ride.</h1>
           <p>Real trip records. Two carefully calibrated estimates.</p>
-        </div>
+          <div className="sc" id="scr" ref={scrollRef} aria-hidden="true"><small>Scroll to ride</small> <i><b /></i> <span>↓</span></div>
+          </div>
         <div id="fin" ref={finishRef}>
           <h2>Every ride has<br />a clearer picture.</h2>
           <div>
@@ -728,7 +738,6 @@ function CityScene({ ready }: { ready: boolean }) {
             <a className="btn s" href="#docs">Explore the method</a>
           </div>
         </div>
-        <div className="sc" id="scr" ref={scrollRef} aria-hidden="true"><small>Scroll to ride</small> <i><b /></i> <span>↓</span></div>
         <div className="hero-ctl">
           <button type="button" className={`sound-btn${soundOn ? ' on' : ''}`} onClick={toggleSound} aria-pressed={soundOn} aria-label={soundOn ? 'Turn engine sound off' : 'Turn engine sound on'}>
             <svg viewBox="0 0 24 24" aria-hidden="true">

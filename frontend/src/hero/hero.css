@@ -20,6 +20,8 @@
 .hero-ctl { position: absolute; z-index: 4; bottom: 30px; left: 34px; display: flex; gap: 8px; }
 
 .sc small { font: inherit; }
+#ht .sc { position: relative; inset: auto; translate: none; width: max-content; margin: 26px auto 0; padding: 7px 12px; gap: 10px; font-size: 8.5px; background: #0d110e8c; }
+#ht .sc i { width: 54px; }
 .sc i { position: relative; display: block; width: 86px; height: 2px; border-radius: 2px; background: #ffffff26; }
 .sc i b { position: absolute; inset: 0; border-radius: inherit; background: var(--accent); transform-origin: left; transform: scaleX(0); }
 .sc i::before, .sc i::after { content: ''; position: absolute; top: -3px; width: 8px; height: 8px; border-radius: 50%; border: 2px solid #d9b45a; background: #0d110e; }
@@ -58,3 +60,8 @@
   .sc span { animation: none; }
   .radio-tuning { animation: none; }
 }
+
+/* nudge towards the radio POWER button while the radio is off */
+.dash-btn-hint { pointer-events: none; transform-box: fill-box; transform-origin: center; animation: radio-hint 1.9s ease-out infinite; }
+@keyframes radio-hint { 0% { transform: scale(1); opacity: .9; } 100% { transform: scale(1.9); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .dash-btn-hint { animation: none; opacity: .8; } }
