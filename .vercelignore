@@ -1,0 +1,12 @@
+.venv
+.venv/**
+data/raw
+data/raw/**
+data/processed
+data/processed/**
+frontend/node_modules
+frontend/node_modules/**
+notebooks
+notebooks/**
+.pytest_cache
+.pytest_cache/**

@@ -26,3 +26,5 @@ notebooks/.tmp/
 # local tool folders
 .agents/
 .claude/
+.vercel
+.env*
